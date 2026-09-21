@@ -11,6 +11,30 @@ fullscreen with no browser chrome, like an app.
 First launch asks for the passphrase. Leave **"zapamatovat na tomto zařízení"**
 ticked and it never asks again on that device.
 
+## Adding a whole songbook file
+
+If you keep songs in a file — Markdown, plain text, or ChordPro — you do not
+need to paste anything:
+
+1. Put the file somewhere the Files app can reach it (iCloud Drive, On My
+   iPhone, Dropbox, or just save it from Mail).
+2. Zpěvník → **+** → **Ze souboru** → **Choose File** → pick it.
+3. The box fills and tells you how many songs it found, e.g.
+   *"5 písní k přidání (3 bez akordů se přeskočí)"*.
+4. **Přidat do zpěvníku** adds them all at once.
+
+Songs are separated by a `## Song title` heading. Per song it also reads
+`Performed by:`, `Key:`, `Capo:`, `Tuning:`, `### Section` headings, fenced
+code blocks (tab staves keep their alignment), and `[Intro]` / `[Chorus]`
+markers.
+
+Selecting several files at once imports all of them straight away, which is
+the quick way to move a folder of `.cho` files onto a new device.
+
+A song is skipped when it has no chords positioned over its lyrics — lyrics
+alone, or a note like *"chords: A / D / G"*, give the player nothing to
+anchor to. Add chord lines above the words and it imports.
+
 ## Hana: adding a song she found
 
 1. Find the song in Safari. Select the chord sheet, **Copy**.

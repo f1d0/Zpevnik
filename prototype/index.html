@@ -306,6 +306,8 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
 }
 
 /* ---------- paste button ---------- */
+.pickrow{display:flex;gap:8px;margin-bottom:10px}
+.pickrow .pastebtn{margin-bottom:0}
 .pastebtn{
   display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
   height:44px;margin-bottom:10px;border-radius:10px;
@@ -499,10 +501,18 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
   </div>
   <div class="field">
     <label for="imBody">Akordy a text</label>
-    <button class="pastebtn" id="pasteBtn" type="button">
-      <svg viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/></svg>
-      Vložit ze schránky
-    </button>
+    <div class="pickrow">
+      <button class="pastebtn" id="pasteBtn" type="button">
+        <svg viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/></svg>
+        Ze schránky
+      </button>
+      <button class="pastebtn" id="fileBtn" type="button">
+        <svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>
+        Ze souboru
+      </button>
+    </div>
+    <input type="file" id="fileInput" multiple hidden
+           accept=".md,.markdown,.txt,.text,.cho,.chopro,.chordpro,.pro,.crd,.html,.htm,text/plain,text/markdown,text/html">
     <textarea id="imBody" spellcheck="false"></textarea>
     <div class="help" id="imHelp"></div>
   </div>
@@ -781,6 +791,7 @@ const state = {
 
 /* ---------- 5. library screen ---------- */
 const $ = id => document.getElementById(id);
+const plural = n => n === 1 ? 'píseň' : (n >= 2 && n <= 4) ? 'písně' : 'písní';
 const listEl = $('list'), emptyEl = $('empty'), countEl = $('count');
 
 function renderLibrary(){
@@ -848,8 +859,7 @@ function renderLibrary(){
     listEl.appendChild(li);
   }
   emptyEl.hidden = rows.length > 0;
-  const n = rows.length;
-  countEl.textContent = n + ' ' + (n === 1 ? 'píseň' : (n >= 2 && n <= 4) ? 'písně' : 'písní');
+  countEl.textContent = rows.length + ' ' + plural(rows.length);
 }
 
 $('q').addEventListener('input', renderLibrary);
@@ -1373,7 +1383,8 @@ $('imHelp').textContent =
   'Označ píseň na webu, zkopíruj (Ctrl+C) a vlož sem — akordy se převedou samy. ' +
   'Funguje i prostý text s akordy nad řádky nebo rovnou ChordPro se závorkami. ' +
   'Prázdný řádek odděluje sloky; řádek „Refrén“ označí refrén. ' +
-  'Můžeš vložit i celý zpěvník najednou — písně oddělené nadpisem „## Název“.';
+  'Můžeš načíst i celý soubor (.md, .txt, .cho) — písně oddělené nadpisem „## Název“ ' +
+  'se přidají všechny najednou.';
 $('imBody').placeholder =
   'C                 G\n' +
   'první řádek textu písně\n' +
@@ -1416,22 +1427,17 @@ $('imBody').addEventListener('paste', e => {
   $('imMsg').textContent = 'Převedeno z webové stránky — ' + n + ' akordů.';
 });
 
-$('addBtn').addEventListener('click', showImport);
-$('impBack').addEventListener('click', hideImport);
+/* Absorb one file or paste, whatever shape it is: a whole Markdown songbook,
+   a single ChordPro file that already names itself, or a loose chord sheet. */
+function importPayload(name, text){
+  let added = 0, skipped = 0;
+  const fallbackTitle = (name || '').replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim();
 
-$('imSave').addEventListener('click', async () => {
-  const title = $('imTitle').value.trim();
-  const artist = $('imArtist').value.trim();
-  const body = $('imBody').value;
-  if (!body.trim()){ $('imMsg').textContent = 'Vlož text s akordy.'; $('imBody').focus(); return; }
-
-  // a whole songbook pasted at once: "## Title" per song
-  const many = splitMarkdown(body).filter(x => x.body.join('\n').trim());
+  const many = splitMarkdown(text).filter(x => x.body.join('\n').trim());
   if (many.length > 1){
-    let added = 0, skipped = 0;
     for (const song of many){
-      const text = song.body.join('\n').trim();
-      const converted = looksLikeChordPro(text) ? text : plainToChordPro(text);
+      const body = song.body.join('\n').trim();
+      const converted = looksLikeChordPro(body) ? body : plainToChordPro(body);
       if (!/\[[^\]\n]+\]/.test(converted)){ skipped++; continue; }
       const head = ['{title: ' + song.title.replace(/[{}]/g, '') + '}'];
       if (song.meta.artist) head.push('{artist: ' + song.meta.artist.replace(/[{}]/g, '') + '}');
@@ -1443,10 +1449,82 @@ $('imSave').addEventListener('click', async () => {
       head.push('{x_license: imported}', '{x_lang: user}');
       if (addSong(head.join('\n') + '\n\n' + converted + '\n', true)) added++; else skipped++;
     }
+    return {added, skipped};
+  }
+
+  // a ChordPro file that already names itself needs nothing from us
+  if (looksLikeChordPro(text) && /\{\s*(title|t)\s*:/i.test(text)){
+    if (addSong(text, true)) added++; else skipped++;
+    return {added, skipped};
+  }
+
+  const built = buildImport(fallbackTitle || 'Píseň', '', text);
+  if (/\[[^\]\n]+\]/.test(built)){ if (addSong(built, true)) added++; else skipped++; }
+  else skipped++;
+  return {added, skipped};
+}
+
+$('fileBtn').addEventListener('click', () => $('fileInput').click());
+
+$('fileInput').addEventListener('change', async e => {
+  const files = [...(e.target.files || [])];
+  if (!files.length) return;
+  $('imMsg').textContent = 'Načítám…';
+  try {
+    if (files.length === 1){
+      const text = await files[0].text();
+      $('imBody').value = text;
+
+      // count only the songs that actually carry chords
+      const many = splitMarkdown(text).filter(x => {
+        const body = x.body.join('\n').trim();
+        if (!body) return false;
+        return /\[[^\]\n]+\]/.test(looksLikeChordPro(body) ? body : plainToChordPro(body));
+      });
+      const total = splitMarkdown(text).filter(x => x.body.join('\n').trim()).length;
+
+      if (total > 1){
+        $('imTitle').value = '';        // titles come from the file itself
+        $('imMsg').textContent = many.length + ' ' + plural(many.length) + ' k přidání' +
+          (total > many.length ? ' (' + (total - many.length) + ' bez akordů se přeskočí)' : '');
+      } else {
+        if (!$('imTitle').value.trim())
+          $('imTitle').value = files[0].name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim();
+        $('imMsg').textContent = 'Načteno — zkontroluj a klepni na Přidat';
+      }
+    } else {
+      let added = 0, skipped = 0;
+      for (const f of files){
+        const r = importPayload(f.name, await f.text());
+        added += r.added; skipped += r.skipped;
+      }
+      await saveVault();
+      hideImport();
+      flash('Přidáno ' + added + (skipped ? ', přeskočeno ' + skipped : ''));
+    }
+  } catch (err) {
+    $('imMsg').textContent = 'Soubor se nepodařilo načíst.';
+  }
+  e.target.value = '';
+});
+
+$('addBtn').addEventListener('click', showImport);
+$('impBack').addEventListener('click', hideImport);
+
+$('imSave').addEventListener('click', async () => {
+  const title = $('imTitle').value.trim();
+  const artist = $('imArtist').value.trim();
+  const body = $('imBody').value;
+  if (!body.trim()){ $('imMsg').textContent = 'Vlož text s akordy.'; $('imBody').focus(); return; }
+
+  // a whole songbook at once: "## Title" per song
+  const many = splitMarkdown(body).filter(x => x.body.join('\n').trim());
+  if (many.length > 1){
+    const r = importPayload('', body);
     await saveVault();
     $('imTitle').value = ''; $('imArtist').value = ''; $('imBody').value = '';
     hideImport();
-    flash('Přidáno ' + added + (skipped ? ', přeskočeno ' + skipped : ''));
+    flash('Přidáno ' + r.added + (r.skipped ? ', přeskočeno ' + r.skipped : ''));
     return;
   }
 
