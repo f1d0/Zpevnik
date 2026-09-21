@@ -1,0 +1,942 @@
+<title>Zpěvník</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+:root{
+  --bg:#F2F2EE;
+  --surface:#FFFFFF;
+  --ink:#191B1E;
+  --muted:#6B6E74;
+  --line:#DEDDD7;
+  --accent:#B06A10;
+  --accent-soft:rgba(176,106,16,.12);
+  --on-accent:#FFFFFF;
+  --tint:rgba(176,106,16,.055);
+  --shadow:0 1px 2px rgba(25,27,30,.06),0 8px 24px rgba(25,27,30,.06);
+
+  --sans:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --cond:"IBM Plex Sans Condensed","IBM Plex Sans",ui-sans-serif,system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+
+  --lyric:23px;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#15171B;
+    --surface:#1D2026;
+    --ink:#E9E7E2;
+    --muted:#91959D;
+    --line:#2B2F36;
+    --accent:#E2A24C;
+    --accent-soft:rgba(226,162,76,.16);
+    --on-accent:#15171B;
+    --tint:rgba(226,162,76,.07);
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15171B;
+  --surface:#1D2026;
+  --ink:#E9E7E2;
+  --muted:#91959D;
+  --line:#2B2F36;
+  --accent:#E2A24C;
+  --accent-soft:rgba(226,162,76,.16);
+  --on-accent:#15171B;
+  --tint:rgba(226,162,76,.07);
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3);
+}
+
+*{box-sizing:border-box}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:16px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+/* ---------- shared chrome ---------- */
+.topbar{
+  position:sticky;top:env(safe-area-inset-top,0px);z-index:40;
+  background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--line);
+}
+.topbar-in{
+  max-width:820px;margin:0 auto;padding:10px 16px;
+  display:flex;align-items:center;gap:12px;min-height:56px;
+}
+.wordmark{
+  font-family:var(--cond);font-weight:700;font-size:20px;letter-spacing:.01em;
+  display:flex;align-items:baseline;gap:8px;
+}
+.wordmark .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block;transform:translateY(-1px)}
+.tagline{font-size:12px;color:var(--muted);letter-spacing:.02em}
+@media (max-width:520px){.tagline{display:none}}
+
+.iconbtn{
+  width:40px;height:40px;border-radius:10px;border:1px solid var(--line);
+  display:grid;place-items:center;flex:none;background:var(--surface);
+}
+.iconbtn:hover{border-color:var(--accent)}
+.iconbtn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+.wrap{max-width:820px;margin:0 auto;padding-inline:16px;padding-block:20px 40px}
+
+/* ---------- library ---------- */
+.search{
+  display:flex;align-items:center;gap:10px;
+  background:var(--surface);border:1px solid var(--line);border-radius:12px;
+  padding:0 14px;box-shadow:var(--shadow);
+}
+.search svg{width:18px;height:18px;stroke:var(--muted);fill:none;stroke-width:1.8;flex:none}
+.search input{
+  flex:1;border:none;background:none;outline:none;color:var(--ink);
+  font-family:var(--sans);font-size:17px;padding:14px 0;min-width:0;
+}
+.search input::placeholder{color:var(--muted)}
+
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.chip{
+  font-family:var(--mono);font-size:12px;letter-spacing:.02em;
+  padding:6px 11px;border-radius:999px;border:1px solid var(--line);
+  background:var(--surface);color:var(--muted);
+}
+.chip[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+
+.listhead{
+  display:flex;align-items:baseline;justify-content:space-between;
+  margin:28px 0 6px;padding-bottom:8px;border-bottom:1px solid var(--line);
+}
+.listhead h2{
+  margin:0;font-family:var(--cond);font-weight:600;font-size:13px;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
+}
+.count{font-family:var(--mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+.songlist{list-style:none;margin:0;padding:0}
+.song{
+  display:flex;align-items:center;gap:14px;width:100%;text-align:left;
+  padding:14px 4px;border-bottom:1px solid var(--line);
+}
+.song:hover .song-title{color:var(--accent)}
+.song-main{flex:1;min-width:0}
+.song-title{
+  font-family:var(--cond);font-weight:600;font-size:21px;line-height:1.2;
+  display:block;transition:color .12s;
+}
+.song-meta{font-size:13px;color:var(--muted);margin-top:3px}
+.song-chords{display:flex;gap:5px;flex:none}
+.badge{
+  font-family:var(--mono);font-size:11px;font-weight:500;
+  color:var(--accent);background:var(--accent-soft);
+  padding:3px 7px;border-radius:5px;
+}
+@media (max-width:440px){.song-chords .badge:nth-child(n+4){display:none}}
+
+.empty{padding:40px 4px;color:var(--muted);text-align:center;font-size:15px}
+
+.note{
+  margin-top:34px;padding:16px;border-radius:12px;
+  border:1px solid var(--line);background:var(--tint);
+  font-size:13.5px;line-height:1.6;color:var(--muted);
+}
+.note strong{color:var(--ink);font-weight:600}
+
+/* ---------- player ---------- */
+.progress{
+  position:fixed;top:0;left:0;height:2px;width:0;z-index:60;
+  background:var(--accent);transition:width .1s linear;
+}
+.player-bar{display:flex;align-items:center;gap:12px;width:100%;min-width:0}
+.player-title{
+  flex:1;min-width:0;
+  font-family:var(--cond);font-weight:600;font-size:18px;line-height:1.2;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.player-title small{display:block;font-family:var(--sans);font-weight:400;font-size:12px;color:var(--muted)}
+.keytag{
+  font-family:var(--mono);font-size:12px;font-weight:500;color:var(--accent);
+  background:var(--accent-soft);padding:5px 9px;border-radius:6px;flex:none;
+  font-variant-numeric:tabular-nums;
+}
+
+.sheet{padding-block:24px 200px}
+.section{margin-bottom:26px}
+.section.chorus{
+  background:var(--tint);border-left:2px solid var(--accent);
+  padding:14px 16px;margin-left:-16px;border-radius:0 8px 8px 0;
+}
+.section-label{
+  font-family:var(--cond);font-weight:600;font-size:11px;letter-spacing:.11em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:10px;
+}
+.section.chorus .section-label{color:var(--accent)}
+.remark{
+  font-family:var(--mono);font-size:13px;color:var(--muted);
+  margin-bottom:18px;padding-left:10px;border-left:2px solid var(--line);
+}
+
+.line{margin-bottom:6px;font-size:var(--lyric);line-height:1.34}
+.line.blank{height:calc(var(--lyric) * .6)}
+.seg{display:inline-block;vertical-align:top}
+.seg.sp{margin-right:.32em}
+.ch{
+  display:block;font-family:var(--mono);font-weight:600;
+  font-size:.66em;line-height:1.5;color:var(--accent);
+  white-space:nowrap;min-height:1.5em;letter-spacing:-.01em;
+}
+.lx{display:block;white-space:pre-wrap}
+
+/* ---------- dock ---------- */
+.dock{
+  position:fixed;left:0;right:0;bottom:0;z-index:50;
+  padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));
+  background:color-mix(in srgb,var(--bg) 92%,transparent);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-top:1px solid var(--line);
+  transition:opacity .45s ease,transform .45s ease;
+}
+.dock.dim{opacity:.16;transform:translateY(6px)}
+.dock.dim:hover{opacity:1;transform:none}
+.dock-in{max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:10px}
+
+.dock-row{display:flex;align-items:center;gap:10px}
+.stepper{
+  display:flex;align-items:center;gap:2px;flex:1;min-width:0;
+  border:1px solid var(--line);border-radius:10px;background:var(--surface);
+  padding:4px;
+}
+.stepper button{
+  width:34px;height:34px;border-radius:7px;flex:none;
+  display:grid;place-items:center;font-family:var(--mono);font-size:17px;color:var(--muted);
+}
+.stepper button:hover{background:var(--accent-soft);color:var(--accent)}
+.stepper .val{
+  flex:1;text-align:center;min-width:0;overflow:hidden;
+  font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums;
+  line-height:1.15;white-space:nowrap;
+}
+.stepper .val b{display:block;font-weight:600;font-size:14px;color:var(--ink)}
+.stepper .val span{color:var(--muted);font-size:10px;letter-spacing:.07em;text-transform:uppercase}
+
+.play{
+  flex:none;height:46px;padding:0 22px;border-radius:12px;
+  background:var(--accent);color:var(--on-accent);font-family:var(--cond);
+  font-weight:600;font-size:15px;letter-spacing:.03em;text-transform:uppercase;
+  display:flex;align-items:center;gap:9px;
+}
+.play svg{width:15px;height:15px;fill:currentColor;stroke:none}
+.play:hover{filter:brightness(1.08)}
+.play.on{background:var(--surface);color:var(--accent);border:1px solid var(--accent)}
+
+.hint{
+  font-size:11.5px;color:var(--muted);text-align:center;letter-spacing:.01em;
+}
+
+/* ---------- count-in ---------- */
+.countin{
+  position:fixed;inset:0;z-index:70;display:grid;place-items:center;
+  background:color-mix(in srgb,var(--bg) 82%,transparent);
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+}
+.countin b{
+  font-family:var(--cond);font-weight:700;font-size:min(34vw,180px);
+  color:var(--accent);line-height:1;font-variant-numeric:tabular-nums;
+  animation:pop .9s ease-out;
+}
+@keyframes pop{from{transform:scale(.72);opacity:.2}60%{opacity:1}to{transform:scale(1);opacity:.85}}
+@media (prefers-reduced-motion:reduce){
+  .countin b{animation:none}
+  .dock{transition:none}
+  .progress{transition:none}
+}
+
+.speedflash{
+  position:fixed;left:50%;bottom:150px;transform:translateX(-50%);z-index:55;
+  font-family:var(--mono);font-size:13px;font-weight:500;
+  background:var(--ink);color:var(--bg);padding:7px 14px;border-radius:999px;
+  pointer-events:none;opacity:0;transition:opacity .25s;
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+.speedflash.show{opacity:.94}
+</style>
+
+<div class="progress" id="progress"></div>
+
+<div class="topbar">
+  <div class="topbar-in">
+    <!-- library header -->
+    <div id="libBar" class="player-bar">
+      <div class="wordmark"><span class="dot"></span>Zpěvník</div>
+      <div style="flex:1"></div>
+      <div class="tagline">chords · lyrics · hands-free</div>
+      <button class="iconbtn" id="themeBtn" title="Světlý / tmavý režim" aria-label="Světlý / tmavý režim">
+        <svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+      </button>
+    </div>
+    <!-- player header -->
+    <div id="playBar" class="player-bar" hidden>
+      <button class="iconbtn" id="backBtn" title="Zpět na seznam" aria-label="Zpět na seznam">
+        <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div class="player-title" id="pTitle">—<small id="pArtist"></small></div>
+      <div class="keytag" id="pKey">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ LIBRARY ============ -->
+<main class="wrap" id="library">
+  <div class="search">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    <input id="q" type="search" placeholder="Hledat píseň nebo interpreta…" autocomplete="off" aria-label="Hledat">
+  </div>
+
+  <div class="chips" role="group" aria-label="Filtry">
+    <button class="chip" data-filter="all" aria-pressed="true">vše</button>
+    <button class="chip" data-filter="easy" aria-pressed="false">snadné</button>
+    <button class="chip" data-filter="cs" aria-pressed="false">české</button>
+    <button class="chip" data-filter="en" aria-pressed="false">anglické</button>
+  </div>
+
+  <div class="listhead">
+    <h2>Zpěvník</h2>
+    <div class="count" id="count">4 písně</div>
+  </div>
+
+  <ul class="songlist" id="list"></ul>
+  <div class="empty" id="empty" hidden>Nic nenalezeno.</div>
+
+  <div class="note">
+    <strong>Prototyp.</strong> Čtyři lidové a public-domain písně, aby bylo
+    co zkoušet. Otevři píseň, zmáčkni <strong>Hrát</strong> — po odpočtu
+    se text začne sám posouvat. Rychlost se ukládá ke každé písni zvlášť,
+    takže se zpěvník postupně naladí na to, jak hraješ.
+    Klepnutím kamkoliv do textu posun pozastavíš.
+  </div>
+</main>
+
+<!-- ============ PLAYER ============ -->
+<main class="wrap" id="player" hidden>
+  <div class="sheet" id="sheet"></div>
+</main>
+
+<div class="dock" id="dock" hidden>
+  <div class="dock-in">
+    <div class="dock-row">
+      <div class="stepper">
+        <button id="spDown" aria-label="Zpomalit">−</button>
+        <div class="val"><b id="spVal">12</b><span>řádků/min</span></div>
+        <button id="spUp" aria-label="Zrychlit">+</button>
+      </div>
+      <button class="play" id="playBtn">
+        <svg id="playIcon" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg>
+        <span id="playLabel">Hrát</span>
+      </button>
+    </div>
+    <div class="dock-row">
+      <div class="stepper">
+        <button id="trDown" aria-label="Transponovat dolů">−</button>
+        <div class="val"><b id="trVal">G</b><span>tónina</span></div>
+        <button id="trUp" aria-label="Transponovat nahoru">+</button>
+      </div>
+      <div class="stepper">
+        <button id="fsDown" aria-label="Zmenšit písmo">−</button>
+        <div class="val"><b id="fsVal">23</b><span>písmo</span></div>
+        <button id="fsUp" aria-label="Zvětšit písmo">+</button>
+      </div>
+      <div class="stepper">
+        <button id="notBtn" style="width:auto;padding:0 14px;font-family:var(--cond);font-size:13px;letter-spacing:.04em" aria-label="Přepnout značení akordů">
+          <span id="notVal">H / Ami</span>
+        </button>
+      </div>
+    </div>
+    <div class="hint" id="hint">Klepnutím do textu pozastavíš · ↑ ↓ mění rychlost · mezerník hraje</div>
+  </div>
+</div>
+
+<div class="countin" id="countin" hidden><b id="countNum">3</b></div>
+<div class="speedflash" id="flash"></div>
+
+<script>
+/* =========================================================================
+   Zpěvník — prototype
+   ChordPro parse → transpose → render → hands-free scroll
+   ========================================================================= */
+
+/* ---------- 1. the songbook (public-domain only) ---------- */
+const SONGS = [
+`{title: Holka modrooká}
+{artist: lidová}
+{key: G}
+{tempo: 108}
+{x_difficulty: easy}
+{x_lang: cs}
+{x_scroll: 11}
+
+{start_of_verse: 1}
+[G]Holka modrooká, nesedávej u po[D7]toka,
+holka modrooká, nesedávej [G]tam.
+{end_of_verse}
+
+{start_of_verse: 2}
+[G]V tom potoce hastrman, zatáhne tě, holka, [D7]tam,
+holka modrooká, nesedávej [G]tam.
+{end_of_verse}
+
+{start_of_verse: 3}
+[G]Nesedávej u vody, ono se ti přiho[D7]dí,
+holka modrooká, nesedávej [G]tam.
+{end_of_verse}`,
+
+`{title: Ach synku, synku}
+{artist: lidová}
+{key: C}
+{tempo: 92}
+{x_difficulty: easy}
+{x_lang: cs}
+{x_scroll: 10}
+
+{comment: Tři doby v taktu — pomalu, ať to dýchá}
+
+{start_of_verse: 1}
+[C]Ach synku, [G7]synku, [C]doma-li jsi?
+[C]Tatíček se [G7]ptá, oral-li [C]jsi.
+[F]Oral jsem, [C]oral, ale [G7]málo,
+[C]kolečko se mi po[G7]lá[C]malo.
+{end_of_verse}
+
+{start_of_verse: 2}
+[C]Když se ti, [G7]synku, po[C]lámalo,
+[C]vezmi si hře[G7]bíček, zatluč ho [C]tam.
+[F]Zatloukl jsem [C]ho, ale [G7]málo,
+[C]kolečko se mi po[G7]lá[C]malo.
+{end_of_verse}`,
+
+`{title: House of the Rising Sun}
+{artist: traditional}
+{key: Am}
+{tempo: 76}
+{x_difficulty: medium}
+{x_lang: en}
+{x_scroll: 9}
+
+{comment: Arpeggio v 6/8 — tři tóny na dobu}
+
+{start_of_verse: 1}
+There [Am]is a [C]house in [D]New Or[F]leans
+They [Am]call the [C]Rising [E7]Sun
+And it's [Am]been the [C]ruin of [D]many a poor [F]boy
+And [Am]God, I [E7]know I'm [Am]one
+{end_of_verse}
+
+{start_of_verse: 2}
+My [Am]mother [C]was a [D]tailor[F]
+She [Am]sewed my [C]new blue [E7]jeans
+My [Am]father [C]was a [D]gamblin' [F]man
+Down [Am]in New [E7]Or[Am]leans
+{end_of_verse}
+
+{start_of_chorus}
+Oh [Am]mother, [C]tell your [D]child[F]ren
+Not to [Am]do what [C]I have [E7]done
+Spend your [Am]lives in [C]sin and [D]mise[F]ry
+In the [Am]House of the [E7]Rising [Am]Sun
+{end_of_chorus}`,
+
+`{title: Amazing Grace}
+{artist: John Newton, 1779}
+{key: G}
+{tempo: 72}
+{x_difficulty: easy}
+{x_lang: en}
+{x_scroll: 8}
+
+{start_of_verse: 1}
+A[G]mazing grace, how [G7]sweet the [C]sound
+That [G]saved a wretch like [D]me
+I [G]once was lost, but [G7]now am [C]found
+Was [G]blind, but [D]now I [G]see
+{end_of_verse}
+
+{start_of_verse: 2}
+'Twas [G]grace that taught my [G7]heart to [C]fear
+And [G]grace my fears re[D]lieved
+How [G]precious did that [G7]grace ap[C]pear
+The [G]hour I [D]first be[G]lieved
+{end_of_verse}`
+];
+
+/* ---------- 2. ChordPro parser ---------- */
+const SHORT = {t:'title',st:'subtitle',soc:'start_of_chorus',eoc:'end_of_chorus',
+  sov:'start_of_verse',eov:'end_of_verse',sob:'start_of_bridge',eob:'end_of_bridge',c:'comment'};
+
+function parseChordPro(src){
+  const song = {meta:{}, sections:[], chords:[], lineCount:0};
+  let cur = null;
+  const open = k => { cur = {kind:k, label:'', lines:[]}; song.sections.push(cur); return cur; };
+
+  for (const raw of src.split('\n')){
+    const line = raw.replace(/\s+$/,'');
+    const dir = line.match(/^\s*\{\s*([a-zA-Z_]+)\s*(?::\s*(.*?))?\s*\}\s*$/);
+
+    if (dir){
+      const name = (SHORT[dir[1].toLowerCase()] || dir[1].toLowerCase());
+      const val = (dir[2] || '').trim();
+      if (name.startsWith('start_of_')){
+        const kind = name.slice(9);
+        open(kind).label = val ? `${kindLabel(kind)} ${val}` : kindLabel(kind);
+      } else if (name.startsWith('end_of_')){
+        cur = null;
+      } else if (name === 'comment' || name === 'comment_italic' || name === 'comment_box'){
+        (cur || open('verse')).lines.push({remark: val});
+      } else {
+        song.meta[name] = val;
+      }
+      continue;
+    }
+
+    if (line.trim() === ''){ if (cur) cur.lines.push({blank:true}); continue; }
+    if (!cur) open('verse');
+    const segs = splitLine(line);
+    for (const s of segs) if (s.chord && !song.chords.includes(s.chord)) song.chords.push(s.chord);
+    cur.lines.push({segs});
+    song.lineCount++;
+  }
+  return song;
+}
+
+function kindLabel(k){
+  return {verse:'Sloka', chorus:'Refrén', bridge:'Bridge', tab:'Tab'}[k] || k;
+}
+
+/* "[G]Holka [D7]modrooká" -> [{chord:'G',text:'Holka '},{chord:'D7',text:'modrooká'}] */
+function splitLine(line){
+  const out = [];
+  const re = /\[([^\]]*)\]/g;
+  let last = 0, m, pending = '';
+  while ((m = re.exec(line)) !== null){
+    const text = line.slice(last, m.index);
+    if (text || pending) out.push({chord: pending, text});
+    pending = m[1].trim();
+    last = re.lastIndex;
+  }
+  const tail = line.slice(last);
+  if (tail || pending) out.push({chord: pending, text: tail});
+  return out.length ? out : [{chord:'', text:line}];
+}
+
+/* word-level tokens so long lines wrap naturally and baselines stay aligned */
+function tokenize(segs){
+  const toks = [];
+  for (const seg of segs){
+    const parts = seg.text.split(/(\s+)/).filter(p => p !== '');
+    let used = false;
+    if (!parts.length){ toks.push({chord: seg.chord, text:'', sp:false}); continue; }
+    for (const p of parts){
+      if (/^\s+$/.test(p)){ if (toks.length) toks[toks.length-1].sp = true; continue; }
+      toks.push({chord: used ? '' : (seg.chord || ''), text: p, sp:false});
+      used = true;
+    }
+  }
+  return toks;
+}
+
+/* ---------- 3. chords: transpose + notation ---------- */
+const SHARPS = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const FLATS  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+const FLATKEYS = new Set(['F','Bb','Eb','Ab','Db','Gb','Dm','Gm','Cm','Fm','Bbm','Ebm']);
+
+function noteIndex(n){
+  let i = SHARPS.indexOf(n); if (i >= 0) return i;
+  i = FLATS.indexOf(n); if (i >= 0) return i;
+  return -1;
+}
+function parseChord(sym){
+  const m = sym.match(/^([A-H])([#b]?)(.*)$/);
+  if (!m) return null;
+  let root = (m[1] === 'H' ? 'B' : m[1]) + m[2];      // Czech H -> B
+  const rest = m[3] || '';
+  const slash = rest.indexOf('/');
+  return {
+    root,
+    suffix: slash >= 0 ? rest.slice(0, slash) : rest,
+    bass:   slash >= 0 ? rest.slice(slash + 1) : ''
+  };
+}
+function shift(note, n, flat){
+  const i = noteIndex(note); if (i < 0) return note;
+  const t = ((i + n) % 12 + 12) % 12;
+  return (flat ? FLATS : SHARPS)[t];
+}
+function transposeKey(key, n){
+  const c = parseChord(key); if (!c) return key;
+  const flat = n !== 0 ? preferFlat(key, n) : FLATKEYS.has(key);
+  return shift(c.root, n, flat) + c.suffix;
+}
+function preferFlat(key, n){
+  const c = parseChord(key); if (!c) return false;
+  const root = shift(c.root, n, true);
+  return FLATKEYS.has(root + c.suffix) || FLATKEYS.has(root);
+}
+/* canonical -> what we print */
+function renderChord(sym, n, czech){
+  const c = parseChord(sym); if (!c) return sym;
+  const flat = preferFlat(state.song.meta.key || 'C', n);
+  let root = shift(c.root, n, flat);
+  let bass = c.bass ? shift(parseChord(c.bass) ? parseChord(c.bass).root : c.bass, n, flat) : '';
+  let suf = c.suffix;
+  if (czech){
+    root = czRoot(root);
+    bass = bass ? czRoot(bass) : '';
+    if (/^m(?!aj)/.test(suf)) suf = 'mi' + suf.slice(1);
+  }
+  return root + suf + (bass ? '/' + bass : '');
+}
+function czRoot(r){
+  if (r === 'B') return 'H';
+  if (r === 'Bb') return 'B';
+  if (r === 'A#') return 'B';
+  return r;
+}
+
+/* ---------- 4. state + storage ---------- */
+const store = {
+  get(k, d){ try { const v = localStorage.getItem('zpevnik:' + k); return v === null ? d : JSON.parse(v); } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem('zpevnik:' + k, JSON.stringify(v)); } catch(e){} }
+};
+
+const library = SONGS.map((src, i) => {
+  const s = parseChordPro(src);
+  return {id: slug(s.meta.title || ('song-' + i)), src, ...s};
+});
+function slug(t){
+  return t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
+          .replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+}
+function fold(t){
+  return (t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+}
+
+const state = {
+  song: null,
+  transpose: 0,
+  speed: 12,
+  fontSize: store.get('fontSize', 23),
+  czech: store.get('czech', true),
+  playing: false,
+  filter: 'all',
+  pos: 0,
+  lineHeight: 40,
+  wake: null
+};
+
+/* ---------- 5. library screen ---------- */
+const $ = id => document.getElementById(id);
+const listEl = $('list'), emptyEl = $('empty'), countEl = $('count');
+
+function renderLibrary(){
+  const q = fold($('q').value.trim());
+  const rows = library.filter(s => {
+    if (state.filter === 'easy' && s.meta.x_difficulty !== 'easy') return false;
+    if (state.filter === 'cs' && s.meta.x_lang !== 'cs') return false;
+    if (state.filter === 'en' && s.meta.x_lang !== 'en') return false;
+    if (!q) return true;
+    return fold(s.meta.title).includes(q) || fold(s.meta.artist).includes(q);
+  });
+
+  listEl.innerHTML = '';
+  for (const s of rows){
+    const li = document.createElement('li');
+    const b = document.createElement('button');
+    b.className = 'song';
+    b.innerHTML =
+      `<div class="song-main">
+         <span class="song-title"></span>
+         <div class="song-meta"></div>
+       </div>
+       <div class="song-chords"></div>`;
+    b.querySelector('.song-title').textContent = s.meta.title;
+    b.querySelector('.song-meta').textContent =
+      [s.meta.artist, s.meta.key ? 'tónina ' + (state.czech ? czRoot(parseChord(s.meta.key).root) + parseChord(s.meta.key).suffix : s.meta.key) : null,
+       s.meta.tempo ? s.meta.tempo + ' BPM' : null].filter(Boolean).join(' · ');
+    const cw = b.querySelector('.song-chords');
+    for (const ch of s.chords.slice(0, 4)){
+      const d = document.createElement('span');
+      d.className = 'badge';
+      d.textContent = state.czech ? czRoot(parseChord(ch).root) + (/^m(?!aj)/.test(parseChord(ch).suffix) ? 'mi' + parseChord(ch).suffix.slice(1) : parseChord(ch).suffix) : ch;
+      cw.appendChild(d);
+    }
+    b.addEventListener('click', () => openSong(s));
+    li.appendChild(b);
+    listEl.appendChild(li);
+  }
+  emptyEl.hidden = rows.length > 0;
+  countEl.textContent = rows.length + ' ' + (rows.length === 1 ? 'píseň' : rows.length < 5 ? 'písně' : 'písní');
+}
+
+$('q').addEventListener('input', renderLibrary);
+document.querySelectorAll('.chip').forEach(c => {
+  c.addEventListener('click', () => {
+    state.filter = c.dataset.filter;
+    document.querySelectorAll('.chip').forEach(o => o.setAttribute('aria-pressed', String(o === c)));
+    renderLibrary();
+  });
+});
+
+/* ---------- 6. player screen ---------- */
+function openSong(s){
+  state.song = s;
+  state.transpose = 0;
+  state.speed = store.get('speed:' + s.id, Number(s.meta.x_scroll) || defaultSpeed(s));
+  state.pos = 0;
+
+  $('library').hidden = true;
+  $('libBar').hidden = true;
+  $('player').hidden = false;
+  $('playBar').hidden = false;
+  $('dock').hidden = false;
+  $('pTitle').childNodes[0].nodeValue = s.meta.title;
+  $('pArtist').textContent = s.meta.artist || '';
+  document.title = s.meta.title + ' · Zpěvník';
+
+  drawSheet();
+  window.scrollTo(0, 0);
+  measure();
+}
+
+function defaultSpeed(s){
+  const dur = Number(s.meta.duration);
+  if (dur && s.lineCount) return Math.round(s.lineCount / (dur / 60));
+  const bpm = Number(s.meta.tempo);
+  if (bpm) return Math.max(6, Math.round(bpm / 8));   // ~2 bars of 4 per printed line
+  return 12;
+}
+
+function drawSheet(){
+  const s = state.song, n = state.transpose, cz = state.czech;
+  const sheet = $('sheet');
+  sheet.innerHTML = '';
+  document.documentElement.style.setProperty('--lyric', state.fontSize + 'px');
+
+  for (const sec of s.sections){
+    if (!sec.lines.length) continue;
+    const el = document.createElement('section');
+    el.className = 'section' + (sec.kind === 'chorus' ? ' chorus' : '');
+    if (sec.label){
+      const l = document.createElement('div');
+      l.className = 'section-label';
+      l.textContent = sec.label;
+      el.appendChild(l);
+    }
+    for (const ln of sec.lines){
+      if (ln.remark){
+        const r = document.createElement('div');
+        r.className = 'remark'; r.textContent = ln.remark; el.appendChild(r); continue;
+      }
+      const d = document.createElement('div');
+      if (ln.blank){ d.className = 'line blank'; el.appendChild(d); continue; }
+      d.className = 'line';
+      for (const t of tokenize(ln.segs)){
+        const sp = document.createElement('span');
+        sp.className = 'seg' + (t.sp ? ' sp' : '');
+        const c = document.createElement('span');
+        c.className = 'ch';
+        c.textContent = t.chord ? renderChord(t.chord, n, cz) : '';
+        const x = document.createElement('span');
+        x.className = 'lx';
+        x.textContent = t.text;
+        sp.appendChild(c); sp.appendChild(x);
+        d.appendChild(sp);
+      }
+      el.appendChild(d);
+    }
+    sheet.appendChild(el);
+  }
+
+  const key = s.meta.key ? transposeKey(s.meta.key, n) : '';
+  const kc = key ? (cz ? czRoot(parseChord(key).root) + (/^m(?!aj)/.test(parseChord(key).suffix) ? 'mi' + parseChord(key).suffix.slice(1) : parseChord(key).suffix) : key) : '—';
+  $('pKey').textContent = kc;
+  $('trVal').textContent = kc + (n ? (n > 0 ? ' +' + n : ' ' + n) : '');
+  $('spVal').textContent = state.speed;
+  $('fsVal').textContent = state.fontSize;
+  $('notVal').textContent = cz ? 'H / Ami' : 'B / Am';
+}
+
+/* px per printed line — the bridge between "lines per minute" and pixels */
+function measure(){
+  const lines = document.querySelectorAll('#sheet .line:not(.blank)').length || 1;
+  const h = $('sheet').scrollHeight - 200;   // minus the bottom pad
+  state.lineHeight = Math.max(12, h / lines);
+}
+
+function goBack(){
+  stop();
+  $('player').hidden = true;
+  $('playBar').hidden = true;
+  $('dock').hidden = true;
+  $('library').hidden = false;
+  $('libBar').hidden = false;
+  document.title = 'Zpěvník';
+  $('progress').style.width = '0';
+  window.scrollTo(0, 0);
+  renderLibrary();
+}
+$('backBtn').addEventListener('click', goBack);
+
+/* ---------- 7. the scroll engine ---------- */
+let raf = null, lastT = 0, dimTimer = null;
+
+function maxScroll(){
+  return Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+}
+
+function tick(t){
+  if (!state.playing) return;
+  if (!lastT) lastT = t;
+  const dt = Math.min(0.1, (t - lastT) / 1000);
+  lastT = t;
+
+  const pxPerSec = (state.speed / 60) * state.lineHeight;
+  state.pos += pxPerSec * dt;                       // sub-pixel accumulator
+  const max = maxScroll();
+  if (state.pos >= max){ state.pos = max; window.scrollTo(0, max); stop(); return; }
+  window.scrollTo(0, state.pos);
+  $('progress').style.width = (max ? (state.pos / max) * 100 : 0) + '%';
+  raf = requestAnimationFrame(tick);
+}
+
+async function play(){
+  if (state.playing) return;
+  await countIn();
+  if (state.song === null) return;
+  state.pos = window.scrollY;
+  state.playing = true;
+  lastT = 0;
+  raf = requestAnimationFrame(tick);
+  setPlayUI(true);
+  keepAwake();
+  dimTimer = setTimeout(() => $('dock').classList.add('dim'), 2600);
+}
+
+function stop(){
+  state.playing = false;
+  if (raf) cancelAnimationFrame(raf);
+  raf = null;
+  clearTimeout(dimTimer);
+  $('dock').classList.remove('dim');
+  setPlayUI(false);
+  releaseWake();
+}
+
+function setPlayUI(on){
+  $('playBtn').classList.toggle('on', on);
+  $('playLabel').textContent = on ? 'Pauza' : 'Hrát';
+  $('playIcon').innerHTML = on
+    ? '<path d="M7 4h4v16H7zM13 4h4v16h-4z"/>'
+    : '<path d="M7 4l13 8-13 8z"/>';
+}
+
+function countIn(){
+  return new Promise(resolve => {
+    const box = $('countin'), num = $('countNum');
+    let i = 3;
+    num.textContent = i;
+    box.hidden = false;
+    const iv = setInterval(() => {
+      i--;
+      if (i === 0){ clearInterval(iv); box.hidden = true; resolve(); return; }
+      num.textContent = i;
+      num.style.animation = 'none'; void num.offsetWidth; num.style.animation = '';
+    }, 800);
+  });
+}
+
+$('playBtn').addEventListener('click', () => state.playing ? stop() : play());
+
+/* tap anywhere in the sheet to pause — the whole viewport is the button */
+$('sheet').addEventListener('click', () => { if (state.playing) stop(); });
+
+/* ---------- 8. controls ---------- */
+function setSpeed(v){
+  state.speed = Math.max(3, Math.min(60, v));
+  $('spVal').textContent = state.speed;
+  if (state.song) store.set('speed:' + state.song.id, state.speed);   // it learns
+  flash(state.speed + ' řádků/min · uloženo');
+}
+$('spUp').addEventListener('click', () => setSpeed(state.speed + 1));
+$('spDown').addEventListener('click', () => setSpeed(state.speed - 1));
+
+$('trUp').addEventListener('click', () => { state.transpose++; drawSheet(); measure(); });
+$('trDown').addEventListener('click', () => { state.transpose--; drawSheet(); measure(); });
+
+$('fsUp').addEventListener('click', () => { state.fontSize = Math.min(44, state.fontSize + 2); store.set('fontSize', state.fontSize); drawSheet(); measure(); });
+$('fsDown').addEventListener('click', () => { state.fontSize = Math.max(15, state.fontSize - 2); store.set('fontSize', state.fontSize); drawSheet(); measure(); });
+
+$('notBtn').addEventListener('click', () => {
+  state.czech = !state.czech;
+  store.set('czech', state.czech);
+  drawSheet();
+});
+
+let flashTimer = null;
+function flash(msg){
+  const f = $('flash');
+  f.textContent = msg;
+  f.classList.add('show');
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => f.classList.remove('show'), 1100);
+}
+
+/* keyboard — a Bluetooth page-turner pedal is just a keyboard */
+document.addEventListener('keydown', e => {
+  if ($('player').hidden) return;
+  if (e.target.tagName === 'INPUT') return;
+  if (e.code === 'Space'){ e.preventDefault(); state.playing ? stop() : play(); }
+  else if (e.key === 'ArrowUp'){ e.preventDefault(); setSpeed(state.speed + 1); }
+  else if (e.key === 'ArrowDown'){ e.preventDefault(); setSpeed(state.speed - 1); }
+  else if (e.key === 'Escape'){ goBack(); }
+});
+
+/* if she scrolls by hand while playing, follow her, don't fight */
+window.addEventListener('scroll', () => {
+  if (!state.playing) return;
+  if (Math.abs(window.scrollY - state.pos) > 40) state.pos = window.scrollY;
+}, {passive:true});
+
+window.addEventListener('resize', () => { if (state.song) measure(); });
+
+/* ---------- 9. screen wake lock ---------- */
+async function keepAwake(){
+  try { if ('wakeLock' in navigator) state.wake = await navigator.wakeLock.request('screen'); } catch(e){}
+}
+function releaseWake(){
+  try { state.wake && state.wake.release(); } catch(e){}
+  state.wake = null;
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && state.playing) keepAwake();
+});
+
+/* ---------- 10. theme toggle ---------- */
+$('themeBtn').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const dark = cur ? cur === 'dark'
+    : window.matchMedia('(prefers-color-scheme: dark)').matches;
+  document.documentElement.setAttribute('data-theme', dark ? 'light' : 'dark');
+  store.set('theme', dark ? 'light' : 'dark');
+});
+const savedTheme = store.get('theme', null);
+if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
+
+/* ---------- go ---------- */
+renderLibrary();
+</script>
