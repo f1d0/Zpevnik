@@ -25,6 +25,15 @@ Songs are plain-text [ChordPro](https://www.chordpro.org/) files.
 - Everything else lives in the user's own browser, imported by them, and
   is never uploaded or committed. See §3 of the design doc for why.
 
+## Deploying
+
+See **[docs/DEPLOY.md](docs/DEPLOY.md)**. In short:
+
+```sh
+npm run build -- '<passphrase>'   # seals songs into dist/index.html
+npm run deploy                    # -> Cloudflare Pages, behind Access
+```
+
 ## Licence
 
 App code: MIT. Song files under `songs/public-domain/` are public domain.

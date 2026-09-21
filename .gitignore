@@ -5,3 +5,4 @@ songs/private/
 songs/_private/
 sealed.json
 *.local
+dist/
