@@ -105,6 +105,26 @@ that are out of copyright come in the box.
 > honest route is an OSA licence for the lyrics. Worth knowing the option
 > exists; not worth building for on day one.
 
+### Private mode (current build)
+
+The prototype runs Tier B only: the whole songbook is sealed behind a PIN.
+
+- `scripts/seal.js` encrypts the song files with **AES-256-GCM**, under a key
+  derived from the PIN by **PBKDF2-HMAC-SHA256, 310 000 iterations**.
+  The page ships ciphertext; no song text exists in the HTML source.
+- The browser repeats the same derivation with WebCrypto. A wrong PIN fails
+  GCM authentication — there is no plaintext comparison to step around.
+- Songs added through the import screen are encrypted with the same key and
+  written to `localStorage`. They never touch a server.
+
+**What this is worth, honestly.** A 4-digit PIN is 10 000 possibilities.
+At 310k iterations each guess costs real time, but someone who has the file
+and wants in can still exhaust the space in minutes. So the gate stops
+casual discovery by a person who gets the link; it is not protection against
+someone determined. Raising it to a word-plus-digits passphrase makes the
+same encryption genuinely strong, and costs one re-run of `seal.js` plus
+the `maxlength` on the PIN field.
+
 ---
 
 ## 4. The song format

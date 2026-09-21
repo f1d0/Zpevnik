@@ -32,5 +32,12 @@ App code: MIT. Song files under `songs/public-domain/` are public domain.
 ## Prototype
 
 `prototype/index.html` is a single-file, working proof of the player —
-parser, transpose, Czech/English chord notation, and the hands-free
-scroll. It is a sketch to feel the interaction, not the codebase.
+parser, transpose, Czech/English chord notation, the hands-free scroll,
+paste-in import, and the PIN gate. It is a sketch to feel the
+interaction, not the codebase.
+
+The songbook inside it is encrypted; rebuild the sealed payload with:
+
+```sh
+node scripts/seal.js <pin> songs/public-domain
+```

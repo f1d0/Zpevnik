@@ -122,9 +122,10 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
 .count{font-family:var(--mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
 
 .songlist{list-style:none;margin:0;padding:0}
+.row{display:flex;align-items:center;gap:4px;border-bottom:1px solid var(--line)}
 .song{
-  display:flex;align-items:center;gap:14px;width:100%;text-align:left;
-  padding:14px 4px;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:14px;flex:1;min-width:0;text-align:left;
+  padding:14px 4px;
 }
 .song:hover .song-title{color:var(--accent)}
 .song-main{flex:1;min-width:0}
@@ -241,6 +242,16 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
   font-size:11.5px;color:var(--muted);text-align:center;letter-spacing:.01em;
 }
 
+@media (max-width:460px){
+  .dock-row{flex-wrap:wrap}
+  .dock-row .notwrap{flex-basis:100%}
+  .stepper button{width:30px;height:32px}
+  .stepper .val b{font-size:13px}
+  .stepper .val span{font-size:9px;letter-spacing:.045em}
+  .play{padding:0 18px}
+  .hint{font-size:11px}
+}
+
 /* ---------- count-in ---------- */
 .countin{
   position:fixed;inset:0;z-index:70;display:grid;place-items:center;
@@ -267,19 +278,95 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
   font-variant-numeric:tabular-nums;white-space:nowrap;
 }
 .speedflash.show{opacity:.94}
+
+/* ---------- gate ---------- */
+.gate{
+  position:fixed;inset:0;z-index:90;display:grid;place-items:center;
+  background:var(--bg);padding:24px;
+}
+.gate-in{width:100%;max-width:330px;text-align:center}
+.gate .wordmark{justify-content:center;font-size:28px;margin-bottom:10px}
+.gate p{color:var(--muted);font-size:13.5px;line-height:1.65;margin:0 0 26px}
+#pin{
+  width:100%;text-align:center;font-family:var(--mono);font-size:30px;font-weight:500;
+  letter-spacing:.42em;text-indent:.42em;
+  padding:16px 0;border-radius:12px;border:1px solid var(--line);
+  background:var(--surface);color:var(--ink);outline:none;
+}
+#pin:focus{border-color:var(--accent)}
+#pin:disabled{opacity:.6}
+.gate.bad #pin{border-color:#C6462F;animation:shake .38s}
+@keyframes shake{25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+.gate-msg{
+  font-family:var(--mono);font-size:12px;color:var(--muted);
+  min-height:1.5em;margin-top:14px;letter-spacing:.03em;
+}
+.gate.bad .gate-msg{color:#C6462F}
+@media (prefers-reduced-motion:reduce){.gate.bad #pin{animation:none}}
+
+/* ---------- importer ---------- */
+.field{margin-bottom:16px}
+.field label{
+  display:block;font-family:var(--cond);font-weight:600;font-size:11px;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;
+}
+.field input,.field textarea{
+  width:100%;border:1px solid var(--line);border-radius:10px;background:var(--surface);
+  color:var(--ink);font-family:var(--sans);font-size:16px;padding:12px 14px;outline:none;
+}
+.field textarea{
+  font-family:var(--mono);font-size:13px;line-height:1.65;min-height:300px;
+  resize:vertical;white-space:pre;overflow-wrap:normal;overflow-x:auto;
+}
+.field input:focus,.field textarea:focus{border-color:var(--accent)}
+.field .help{font-size:12px;color:var(--muted);margin-top:7px;line-height:1.55}
+.primary{
+  height:46px;padding:0 24px;border-radius:12px;flex:none;
+  background:var(--accent);color:var(--on-accent);font-family:var(--cond);
+  font-weight:600;font-size:15px;letter-spacing:.03em;text-transform:uppercase;
+}
+.primary:hover{filter:brightness(1.08)}
+.rowend{display:flex;gap:12px;align-items:center;margin-top:20px;flex-wrap:wrap}
+.imsg{font-size:13px;color:var(--muted)}
+.mine{
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--muted);border:1px solid var(--line);padding:2px 5px;border-radius:4px;
+  margin-left:8px;vertical-align:2px;
+}
+.del{
+  width:34px;height:34px;border-radius:8px;color:var(--muted);flex:none;
+  display:grid;place-items:center;font-size:19px;line-height:1;
+}
+.del:hover{background:var(--accent-soft);color:#C6462F}
 </style>
 
 <div class="progress" id="progress"></div>
 
-<div class="topbar">
+<div class="gate" id="gate">
+  <div class="gate-in">
+    <div class="wordmark"><span class="dot"></span>Zpěvník</div>
+    <p>Soukromý zpěvník. Písně jsou v této stránce uložené<br>zašifrovaně — odemkni je PINem.</p>
+    <input id="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4"
+           autocomplete="off" placeholder="····" aria-label="PIN" aria-describedby="gateMsg">
+    <div class="gate-msg" id="gateMsg">4 číslice</div>
+  </div>
+</div>
+
+<div class="topbar" id="topbar" hidden>
   <div class="topbar-in">
     <!-- library header -->
     <div id="libBar" class="player-bar">
       <div class="wordmark"><span class="dot"></span>Zpěvník</div>
       <div style="flex:1"></div>
       <div class="tagline">chords · lyrics · hands-free</div>
+      <button class="iconbtn" id="addBtn" title="Přidat píseň" aria-label="Přidat píseň">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
       <button class="iconbtn" id="themeBtn" title="Světlý / tmavý režim" aria-label="Světlý / tmavý režim">
         <svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+      </button>
+      <button class="iconbtn" id="lockBtn" title="Zamknout" aria-label="Zamknout">
+        <svg viewBox="0 0 24 24"><rect x="4" y="10.5" width="16" height="10.5" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>
       </button>
     </div>
     <!-- player header -->
@@ -289,6 +376,13 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
       </button>
       <div class="player-title" id="pTitle">—<small id="pArtist"></small></div>
       <div class="keytag" id="pKey">—</div>
+    </div>
+    <!-- importer header -->
+    <div id="impBar" class="player-bar" hidden>
+      <button class="iconbtn" id="impBack" title="Zpět na seznam" aria-label="Zpět na seznam">
+        <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div class="player-title">Přidat píseň<small>uloží se zašifrovaně jen do tohoto zařízení</small></div>
     </div>
   </div>
 </div>
@@ -305,6 +399,7 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
     <button class="chip" data-filter="easy" aria-pressed="false">snadné</button>
     <button class="chip" data-filter="cs" aria-pressed="false">české</button>
     <button class="chip" data-filter="en" aria-pressed="false">anglické</button>
+    <button class="chip" data-filter="mine" aria-pressed="false">moje</button>
   </div>
 
   <div class="listhead">
@@ -316,17 +411,40 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
   <div class="empty" id="empty" hidden>Nic nenalezeno.</div>
 
   <div class="note">
-    <strong>Prototyp.</strong> Čtyři lidové a public-domain písně, aby bylo
-    co zkoušet. Otevři píseň, zmáčkni <strong>Hrát</strong> — po odpočtu
-    se text začne sám posouvat. Rychlost se ukládá ke každé písni zvlášť,
-    takže se zpěvník postupně naladí na to, jak hraješ.
-    Klepnutím kamkoliv do textu posun pozastavíš.
+    <strong>Prototyp.</strong> Otevři píseň a zmáčkni <strong>Hrát</strong> —
+    po odpočtu se text začne sám posouvat, klepnutím kamkoliv do textu ho
+    pozastavíš. Rychlost se ukládá ke každé písni zvlášť, takže se zpěvník
+    postupně naladí na to, jak hraješ.<br><br>
+    Tlačítkem <strong>+</strong> nahoře přidáš vlastní píseň — stačí vložit
+    text s akordy nad řádky, jak ho zkopíruješ z jakéhokoliv webu. Vlastní
+    písně se zašifrují stejným PINem a zůstanou jen v tomhle zařízení:
+    neodcházejí na žádný server.
   </div>
 </main>
 
 <!-- ============ PLAYER ============ -->
 <main class="wrap" id="player" hidden>
   <div class="sheet" id="sheet"></div>
+</main>
+
+<main class="wrap" id="importer" hidden>
+  <div class="field">
+    <label for="imTitle">Název</label>
+    <input id="imTitle" type="text" autocomplete="off" placeholder="I Love You Too Much">
+  </div>
+  <div class="field">
+    <label for="imArtist">Interpret</label>
+    <input id="imArtist" type="text" autocomplete="off" placeholder="Diego Luna · Book of Life">
+  </div>
+  <div class="field">
+    <label for="imBody">Akordy a text</label>
+    <textarea id="imBody" spellcheck="false"></textarea>
+    <div class="help" id="imHelp"></div>
+  </div>
+  <div class="rowend">
+    <button class="primary" id="imSave">Přidat do zpěvníku</button>
+    <span class="imsg" id="imMsg"></span>
+  </div>
 </main>
 
 <div class="dock" id="dock" hidden>
@@ -353,7 +471,7 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
         <div class="val"><b id="fsVal">23</b><span>písmo</span></div>
         <button id="fsUp" aria-label="Zvětšit písmo">+</button>
       </div>
-      <div class="stepper">
+      <div class="stepper notwrap">
         <button id="notBtn" style="width:auto;padding:0 14px;font-family:var(--cond);font-size:13px;letter-spacing:.04em" aria-label="Přepnout značení akordů">
           <span id="notVal">H / Ami</span>
         </button>
@@ -372,108 +490,36 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
    ChordPro parse → transpose → render → hands-free scroll
    ========================================================================= */
 
-/* ---------- 1. the songbook (public-domain only) ---------- */
-const SONGS = [
-`{title: Holka modrooká}
-{artist: lidová}
-{key: G}
-{tempo: 108}
-{x_difficulty: easy}
-{x_lang: cs}
-{x_scroll: 11}
+/* ---------- 1. the sealed songbook ----------
+   Ciphertext only. AES-256-GCM, key from PBKDF2-HMAC-SHA256 over the PIN.
+   Built by scripts/seal.js. No plaintext song lives in this file.        */
+const SEALED = {"v":1,"iter":310000,"salt":"XRlEoE/Th+kPMi0XkE4YOQ==","iv":"DfTsnXDNJ2ptChHS","ct":"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"};
 
-{start_of_verse: 1}
-[G]Holka modrooká, nesedávej u po[D7]toka,
-holka modrooká, nesedávej [G]tam.
-{end_of_verse}
-
-{start_of_verse: 2}
-[G]V tom potoce hastrman, zatáhne tě, holka, [D7]tam,
-holka modrooká, nesedávej [G]tam.
-{end_of_verse}
-
-{start_of_verse: 3}
-[G]Nesedávej u vody, ono se ti přiho[D7]dí,
-holka modrooká, nesedávej [G]tam.
-{end_of_verse}`,
-
-`{title: Ach synku, synku}
-{artist: lidová}
-{key: C}
-{tempo: 92}
-{x_difficulty: easy}
-{x_lang: cs}
-{x_scroll: 10}
-
-{comment: Tři doby v taktu — pomalu, ať to dýchá}
-
-{start_of_verse: 1}
-[C]Ach synku, [G7]synku, [C]doma-li jsi?
-[C]Tatíček se [G7]ptá, oral-li [C]jsi.
-[F]Oral jsem, [C]oral, ale [G7]málo,
-[C]kolečko se mi po[G7]lá[C]malo.
-{end_of_verse}
-
-{start_of_verse: 2}
-[C]Když se ti, [G7]synku, po[C]lámalo,
-[C]vezmi si hře[G7]bíček, zatluč ho [C]tam.
-[F]Zatloukl jsem [C]ho, ale [G7]málo,
-[C]kolečko se mi po[G7]lá[C]malo.
-{end_of_verse}`,
-
-`{title: House of the Rising Sun}
-{artist: traditional}
-{key: Am}
-{tempo: 76}
-{x_difficulty: medium}
-{x_lang: en}
-{x_scroll: 9}
-
-{comment: Arpeggio v 6/8 — tři tóny na dobu}
-
-{start_of_verse: 1}
-There [Am]is a [C]house in [D]New Or[F]leans
-They [Am]call the [C]Rising [E7]Sun
-And it's [Am]been the [C]ruin of [D]many a poor [F]boy
-And [Am]God, I [E7]know I'm [Am]one
-{end_of_verse}
-
-{start_of_verse: 2}
-My [Am]mother [C]was a [D]tailor[F]
-She [Am]sewed my [C]new blue [E7]jeans
-My [Am]father [C]was a [D]gamblin' [F]man
-Down [Am]in New [E7]Or[Am]leans
-{end_of_verse}
-
-{start_of_chorus}
-Oh [Am]mother, [C]tell your [D]child[F]ren
-Not to [Am]do what [C]I have [E7]done
-Spend your [Am]lives in [C]sin and [D]mise[F]ry
-In the [Am]House of the [E7]Rising [Am]Sun
-{end_of_chorus}`,
-
-`{title: Amazing Grace}
-{artist: John Newton, 1779}
-{key: G}
-{tempo: 72}
-{x_difficulty: easy}
-{x_lang: en}
-{x_scroll: 8}
-
-{start_of_verse: 1}
-A[G]mazing grace, how [G7]sweet the [C]sound
-That [G]saved a wretch like [D]me
-I [G]once was lost, but [G7]now am [C]found
-Was [G]blind, but [D]now I [G]see
-{end_of_verse}
-
-{start_of_verse: 2}
-'Twas [G]grace that taught my [G7]heart to [C]fear
-And [G]grace my fears re[D]lieved
-How [G]precious did that [G7]grace ap[C]pear
-The [G]hour I [D]first be[G]lieved
-{end_of_verse}`
-];
+/* ---------- 1b. crypto ----------
+   WebCrypto mirror of scripts/seal.js. A wrong PIN fails AES-GCM
+   authentication; there is no plaintext comparison to step around.   */
+const te = new TextEncoder(), td = new TextDecoder();
+const b64d = str => Uint8Array.from(atob(str), c => c.charCodeAt(0));
+function b64e(buf){
+  const a = new Uint8Array(buf); let out = '';
+  for (let i = 0; i < a.length; i += 0x8000)
+    out += String.fromCharCode.apply(null, a.subarray(i, i + 0x8000));
+  return btoa(out);
+}
+async function deriveKey(pass, salt, iter){
+  const base = await crypto.subtle.importKey('raw', te.encode(pass), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt, iterations:iter, hash:'SHA-256'},
+    base, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+}
+async function aesDecrypt(key, ivB64, ctB64){
+  return td.decode(await crypto.subtle.decrypt({name:'AES-GCM', iv:b64d(ivB64)}, key, b64d(ctB64)));
+}
+async function aesEncrypt(key, text){
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, te.encode(text));
+  return {iv: b64e(iv), ct: b64e(ct)};
+}
 
 /* ---------- 2. ChordPro parser ---------- */
 const SHORT = {t:'title',st:'subtitle',soc:'start_of_chorus',eoc:'end_of_chorus',
@@ -601,6 +647,16 @@ function renderChord(sym, n, czech){
   }
   return root + suf + (bass ? '/' + bass : '');
 }
+/* safe display label for a chord or key, in the chosen notation */
+function chordLabel(sym, czech){
+  const c = parseChord(sym);
+  if (!c) return sym;
+  let suf = c.suffix;
+  if (czech && /^m(?!aj)/.test(suf)) suf = 'mi' + suf.slice(1);
+  const root = czech ? czRoot(c.root) : c.root;
+  const bass = c.bass ? (czech ? czRoot(c.bass) : c.bass) : '';
+  return root + suf + (bass ? '/' + bass : '');
+}
 function czRoot(r){
   if (r === 'B') return 'H';
   if (r === 'Bb') return 'B';
@@ -614,10 +670,15 @@ const store = {
   set(k, v){ try { localStorage.setItem('zpevnik:' + k, JSON.stringify(v)); } catch(e){} }
 };
 
-const library = SONGS.map((src, i) => {
-  const s = parseChordPro(src);
-  return {id: slug(s.meta.title || ('song-' + i)), src, ...s};
-});
+const library = [];
+function addSong(src, imported){
+  const parsed = parseChordPro(src);
+  const id = slug(parsed.meta.title || ('song-' + library.length));
+  if (library.some(x => x.id === id)) return null;
+  const rec = {id, src, imported: !!imported, ...parsed};
+  library.push(rec);
+  return rec;
+}
 function slug(t){
   return t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
           .replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
@@ -636,7 +697,8 @@ const state = {
   filter: 'all',
   pos: 0,
   lineHeight: 40,
-  wake: null
+  wake: null,
+  key: null
 };
 
 /* ---------- 5. library screen ---------- */
@@ -649,6 +711,7 @@ function renderLibrary(){
     if (state.filter === 'easy' && s.meta.x_difficulty !== 'easy') return false;
     if (state.filter === 'cs' && s.meta.x_lang !== 'cs') return false;
     if (state.filter === 'en' && s.meta.x_lang !== 'en') return false;
+    if (state.filter === 'mine' && !s.imported) return false;
     if (!q) return true;
     return fold(s.meta.title).includes(q) || fold(s.meta.artist).includes(q);
   });
@@ -656,6 +719,8 @@ function renderLibrary(){
   listEl.innerHTML = '';
   for (const s of rows){
     const li = document.createElement('li');
+    li.className = 'row';
+
     const b = document.createElement('button');
     b.className = 'song';
     b.innerHTML =
@@ -664,23 +729,49 @@ function renderLibrary(){
          <div class="song-meta"></div>
        </div>
        <div class="song-chords"></div>`;
-    b.querySelector('.song-title').textContent = s.meta.title;
-    b.querySelector('.song-meta').textContent =
-      [s.meta.artist, s.meta.key ? 'tónina ' + (state.czech ? czRoot(parseChord(s.meta.key).root) + parseChord(s.meta.key).suffix : s.meta.key) : null,
-       s.meta.tempo ? s.meta.tempo + ' BPM' : null].filter(Boolean).join(' · ');
+
+    const t = b.querySelector('.song-title');
+    t.textContent = s.meta.title;
+    if (s.imported){
+      const tag = document.createElement('span');
+      tag.className = 'mine'; tag.textContent = 'moje';
+      t.appendChild(tag);
+    }
+    b.querySelector('.song-meta').textContent = [
+      s.meta.artist,
+      s.meta.key ? 'tónina ' + chordLabel(s.meta.key, state.czech) : null,
+      s.meta.tempo ? s.meta.tempo + ' BPM' : null
+    ].filter(Boolean).join(' · ');
+
     const cw = b.querySelector('.song-chords');
     for (const ch of s.chords.slice(0, 4)){
       const d = document.createElement('span');
       d.className = 'badge';
-      d.textContent = state.czech ? czRoot(parseChord(ch).root) + (/^m(?!aj)/.test(parseChord(ch).suffix) ? 'mi' + parseChord(ch).suffix.slice(1) : parseChord(ch).suffix) : ch;
+      d.textContent = chordLabel(ch, state.czech);
       cw.appendChild(d);
     }
     b.addEventListener('click', () => openSong(s));
     li.appendChild(b);
+
+    if (s.imported){
+      const del = document.createElement('button');
+      del.className = 'del';
+      del.textContent = '\u00d7';
+      del.title = 'Odebrat ze zpěvníku';
+      del.setAttribute('aria-label', 'Odebrat ' + s.meta.title);
+      del.addEventListener('click', async () => {
+        if (!confirm('Odebrat \u201e' + s.meta.title + '\u201c ze zpěvníku?')) return;
+        library.splice(library.indexOf(s), 1);
+        await saveVault();
+        renderLibrary();
+      });
+      li.appendChild(del);
+    }
     listEl.appendChild(li);
   }
   emptyEl.hidden = rows.length > 0;
-  countEl.textContent = rows.length + ' ' + (rows.length === 1 ? 'píseň' : rows.length < 5 ? 'písně' : 'písní');
+  const n = rows.length;
+  countEl.textContent = n + ' ' + (n === 1 ? 'píseň' : (n >= 2 && n <= 4) ? 'písně' : 'písní');
 }
 
 $('q').addEventListener('input', renderLibrary);
@@ -763,7 +854,7 @@ function drawSheet(){
   }
 
   const key = s.meta.key ? transposeKey(s.meta.key, n) : '';
-  const kc = key ? (cz ? czRoot(parseChord(key).root) + (/^m(?!aj)/.test(parseChord(key).suffix) ? 'mi' + parseChord(key).suffix.slice(1) : parseChord(key).suffix) : key) : '—';
+  const kc = key ? chordLabel(key, cz) : '—';
   $('pKey').textContent = kc;
   $('trVal').textContent = kc + (n ? (n > 0 ? ' +' + n : ' ' + n) : '');
   $('spVal').textContent = state.speed;
@@ -937,6 +1028,172 @@ $('themeBtn').addEventListener('click', () => {
 const savedTheme = store.get('theme', null);
 if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
 
+/* ---------- 11. importing your own songs ----------
+   Accepts ChordPro, or the chords-over-lyrics block that every chord
+   site on the web publishes — converted by column position.          */
+const CHORD_RE = /^[A-H](#|b)?(mi|min|maj|m|M|dim|aug|sus|add)?\d*(sus\d*|add\d*|maj\d*|dim|aug|\+)*(\/[A-H](#|b)?)?$/;
+
+function isChordLine(line){
+  const toks = line.trim().split(/\s+/).filter(Boolean);
+  return toks.length > 0 && toks.every(t => CHORD_RE.test(t));
+}
+
+/* put [chords] into the lyric line at the column they sat above */
+function mergeChordLine(chordLine, lyricLine){
+  const marks = [], re = /\S+/g;
+  let m; while ((m = re.exec(chordLine)) !== null) marks.push({col: m.index, chord: m[0]});
+  const inside = marks.filter(x => x.col < lyricLine.length);
+  const over   = marks.filter(x => x.col >= lyricLine.length);
+  let out = lyricLine;
+  for (let i = inside.length - 1; i >= 0; i--)
+    out = out.slice(0, inside[i].col) + '[' + inside[i].chord + ']' + out.slice(inside[i].col);
+  for (const o of over) out += '[' + o.chord + ']';
+  return out;
+}
+
+function plainToChordPro(text){
+  const L = text.split('\n').map(l => l.replace(/\t/g, '    ').replace(/\s+$/, ''));
+  const out = [];
+  for (let i = 0; i < L.length; i++){
+    if (!isChordLine(L[i])){ out.push(L[i]); continue; }
+    const next = L[i + 1];
+    if (next !== undefined && next.trim() !== '' && !isChordLine(next)){
+      out.push(mergeChordLine(L[i], next));
+      i++;
+    } else {
+      out.push(L[i].trim().split(/\s+/).map(c => '[' + c + ']').join(' '));
+    }
+  }
+  return out.join('\n');
+}
+
+function buildImport(title, artist, raw){
+  let body = raw.replace(/\r\n?/g, '\n').trim();
+  if (!/\[[^\]\n]+\]/.test(body)) body = plainToChordPro(body);
+
+  let v = 0;
+  const secs = body.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean).map(b => {
+    const lines = b.split('\n');
+    if (/^(ref(r[ée]n)?|chorus|r)\s*:?\s*$/i.test(lines[0].trim()))
+      return '{start_of_chorus}\n' + lines.slice(1).join('\n') + '\n{end_of_chorus}';
+    v++;
+    return '{start_of_verse: ' + v + '}\n' + b + '\n{end_of_verse}';
+  });
+
+  const probe = parseChordPro(body);
+  const head = ['{title: ' + title.replace(/[{}]/g, '') + '}'];
+  if (artist) head.push('{artist: ' + artist.replace(/[{}]/g, '') + '}');
+  if (probe.chords.length) head.push('{key: ' + probe.chords[0] + '}');
+  head.push('{x_license: imported}', '{x_lang: user}');
+  return head.join('\n') + '\n\n' + secs.join('\n\n') + '\n';
+}
+
+/* imported songs are encrypted with the same key and never leave the device */
+async function saveVault(){
+  if (!state.key) return;
+  const items = [];
+  for (const s of library.filter(x => x.imported))
+    items.push(Object.assign({id: s.id}, await aesEncrypt(state.key, s.src)));
+  store.set('vault', items);
+}
+
+$('imHelp').textContent =
+  'Vlož akordy nad řádky textu (tak, jak je zkopíruješ z webu) nebo rovnou ChordPro ' +
+  'se závorkami. Prázdný řádek odděluje sloky; řádek „Refrén“ označí refrén.';
+$('imBody').placeholder =
+  'G                        D7\n' +
+  'Holka modrooká, nesedávej u potoka\n' +
+  '\n' +
+  '…nebo:\n' +
+  '\n' +
+  '[G]Holka modrooká, nesedávej u po[D7]toka';
+
+function showImport(){
+  stop();
+  $('library').hidden = true; $('libBar').hidden = true;
+  $('player').hidden = true;  $('playBar').hidden = true; $('dock').hidden = true;
+  $('importer').hidden = false; $('impBar').hidden = false;
+  $('progress').style.width = '0';
+  window.scrollTo(0, 0);
+  $('imTitle').focus();
+}
+function hideImport(){
+  $('importer').hidden = true; $('impBar').hidden = true;
+  $('library').hidden = false; $('libBar').hidden = false;
+  $('imMsg').textContent = '';
+  window.scrollTo(0, 0);
+  renderLibrary();
+}
+$('addBtn').addEventListener('click', showImport);
+$('impBack').addEventListener('click', hideImport);
+
+$('imSave').addEventListener('click', async () => {
+  const title = $('imTitle').value.trim();
+  const artist = $('imArtist').value.trim();
+  const body = $('imBody').value;
+  if (!title){ $('imMsg').textContent = 'Doplň název písně.'; $('imTitle').focus(); return; }
+  if (!body.trim()){ $('imMsg').textContent = 'Vlož text s akordy.'; $('imBody').focus(); return; }
+
+  const rec = addSong(buildImport(title, artist, body), true);
+  if (!rec){ $('imMsg').textContent = 'Píseň s tímto názvem už ve zpěvníku je.'; return; }
+
+  await saveVault();
+  $('imTitle').value = ''; $('imArtist').value = ''; $('imBody').value = '';
+  hideImport();
+  openSong(rec);
+});
+
+/* ---------- 12. unlock ---------- */
+async function unlock(pin){
+  const key = await deriveKey(pin, b64d(SEALED.salt), SEALED.iter);
+  const json = await aesDecrypt(key, SEALED.iv, SEALED.ct);   // throws if the PIN is wrong
+  state.key = key;
+  library.length = 0;
+  for (const src of JSON.parse(json)) addSong(src, false);
+  for (const item of store.get('vault', [])){
+    try { addSong(await aesDecrypt(key, item.iv, item.ct), true); } catch (e) { /* sealed under another PIN */ }
+  }
+  $('gate').hidden = true;
+  $('topbar').hidden = false;
+  $('library').hidden = false;
+  renderLibrary();
+}
+
+const pinEl = $('pin');
+pinEl.addEventListener('input', async () => {
+  const v = pinEl.value.replace(/\D/g, '');
+  if (pinEl.value !== v) pinEl.value = v;
+  $('gate').classList.remove('bad');
+  if (v.length < 4){ $('gateMsg').textContent = '4 číslice'; return; }
+
+  $('gateMsg').textContent = 'odemykám…';
+  pinEl.disabled = true;
+  try {
+    await unlock(v);
+    try { sessionStorage.setItem('zpevnik:pin', v); } catch (e) {}
+  } catch (e) {
+    $('gate').classList.add('bad');
+    $('gateMsg').textContent = 'špatný PIN';
+    pinEl.value = '';
+  } finally {
+    pinEl.disabled = false;
+    if (!$('gate').hidden) pinEl.focus();
+  }
+});
+
+$('lockBtn').addEventListener('click', () => {
+  try { sessionStorage.removeItem('zpevnik:pin'); } catch (e) {}
+  location.reload();
+});
+
 /* ---------- go ---------- */
-renderLibrary();
+(async function boot(){
+  let saved = null;
+  try { saved = sessionStorage.getItem('zpevnik:pin'); } catch (e) {}
+  if (saved){
+    try { await unlock(saved); return; }
+    catch (e) { try { sessionStorage.removeItem('zpevnik:pin'); } catch (_) {} }
+  }
+  pinEl.focus();
+})();
 </script>

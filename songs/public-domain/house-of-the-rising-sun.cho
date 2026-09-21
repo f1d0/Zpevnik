@@ -5,6 +5,7 @@
 {time: 6/8}
 {x_license: public-domain}
 {x_source: traditional American folk ballad}
+{x_lang: en}
 {x_difficulty: medium}
 {x_scroll: 9}
 
@@ -23,3 +24,10 @@ She [Am]sewed my [C]new blue [E7]jeans
 My [Am]father [C]was a [D]gamblin' [F]man
 Down [Am]in New [E7]Or[Am]leans
 {end_of_verse}
+
+{start_of_chorus}
+Oh [Am]mother, [C]tell your [D]child[F]ren
+Not to [Am]do what [C]I have [E7]done
+Spend your [Am]lives in [C]sin and [D]mise[F]ry
+In the [Am]House of the [E7]Rising [Am]Sun
+{end_of_chorus}
