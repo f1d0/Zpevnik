@@ -491,11 +491,11 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
 <main class="wrap" id="importer" hidden>
   <div class="field">
     <label for="imTitle">Název</label>
-    <input id="imTitle" type="text" autocomplete="off" placeholder="I Love You Too Much">
+    <input id="imTitle" type="text" autocomplete="off" placeholder="název písně">
   </div>
   <div class="field">
     <label for="imArtist">Interpret</label>
-    <input id="imArtist" type="text" autocomplete="off" placeholder="Diego Luna · Book of Life">
+    <input id="imArtist" type="text" autocomplete="off" placeholder="interpret">
   </div>
   <div class="field">
     <label for="imBody">Akordy a text</label>
@@ -1234,6 +1234,8 @@ function plainToChordPro(text){
       continue;
     }
 
+    // a line that is already a directive passes straight through
+    if (/^\s*\{[a-z_]+[:}]/i.test(line)){ out.push(line.trim()); continue; }
     // credits and tuning notes ahead of any chord are not a verse
     if (!sawChord && !open){ out.push('{comment: ' + line.trim() + '}'); continue; }
     if (!open) openSec('verse');
@@ -1254,11 +1256,77 @@ function keyFromChord(sym){
 }
 
 function looksLikeChordPro(text){
-  if (/^[ \t]*\{[ \t]*[a-z_]+[ \t]*[:}]/im.test(text)) return true;   // directives
+  // a bare {comment} proves nothing — it is also what this importer injects
+  // for tuning notes and asides. Structural directives are the real signal.
+  if (/^[ \t]*\{[ \t]*(?!comment|c[:}]|ci[:}]|cb[:}])[a-z_]+[ \t]*[:}]/im.test(text)) return true;   // directives
   const inner = (text.match(/\[([^\]\n]{1,30})\]/g) || []).map(b => b.slice(1, -1).trim());
   if (!inner.length) return false;
   const chords = inner.filter(t => CHORD_RE.test(t)).length;
   return chords >= Math.max(2, inner.length * 0.6);
+}
+
+const MD_META = /^(Performed by|Artist|Key|Capo|Tuning|Tempo|BPM)\s*:\s*(.*)$/i;
+const MD_LABEL = /^(Lyrics|Full Lyrics|Chords|Bridge|Intro|Verse|Chorus|Outro|Solo)\b\s*:?\s*$/i;
+
+function splitMarkdown(text){
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
+  const songs = [];
+  let cur = null, fence = false;
+
+  for (const raw of lines){
+    if (/^\s*(```|~~~)/.test(raw)){
+      fence = !fence;
+      if (cur) cur.body.push('');
+      continue;
+    }
+
+    if (fence){ if (cur) cur.body.push(raw.replace(/\s+$/, '')); continue; }
+
+    const h2 = raw.match(/^##\s+(.+?)\s*$/);
+    if (h2){
+      const title = h2[1].replace(/\*\*/g, '').replace(/^\d+[.)]\s*/, '').trim();
+      cur = {title, meta: {}, body: []};
+      songs.push(cur);
+      continue;
+    }
+    if (/^#\s/.test(raw)){ cur = null; continue; }        // document heading
+    if (/^\s*([-*_])\s*\1\s*\1[\s-*_]*$/.test(raw)) continue;   // horizontal rule
+    if (!cur) continue;
+
+    let line = raw.replace(/\s+$/, '')
+      .replace(/\*\*(.+?)\*\*/g, '$1')
+      .replace(/^\s*_(.+?)_\s*$/, '$1');
+
+    const h3 = line.match(/^#{3,}\s+(.+?)\s*$/);
+    if (h3){ cur.body.push('[' + h3[1].trim() + ']'); continue; }
+
+    // a parenthetical aside, e.g. *(Transpose up two semitones)*
+    const aside = line.match(/^\s*\*\((.+)\)\*\s*$/) || line.match(/^\s*\*(.+?)\*\s*$/);
+    if (aside){ cur.body.push('{comment: ' + aside[1].trim() + '}'); continue; }
+
+    const m = line.match(MD_META);
+    if (m){
+      const field = m[1].toLowerCase(), rest = m[2].trim();
+      // "Key: E | Capo: None" carries two fields on one line
+      for (const part of (field === 'key' || field === 'capo' ? line.split('|') : [line])){
+        const pm = part.trim().match(MD_META);
+        if (!pm) continue;
+        const f = pm[1].toLowerCase(), v = pm[2].trim();
+        if (/performed by|artist/.test(f)) cur.meta.artist = v;
+        else if (f === 'key') cur.meta.key = v.split(/[\s|]/)[0];
+        else if (f === 'capo'){ const d = v.match(/\d+/); if (d) cur.meta.capo = d[0]; }
+        else if (f === 'tuning') cur.body.push('{comment: Ladění ' + v + '}');
+        else if (/tempo|bpm/.test(f)){ const d = v.match(/\d+/); if (d) cur.meta.tempo = d[0]; }
+      }
+      if (!/tuning/.test(field)) continue;
+      continue;
+    }
+    if (MD_LABEL.test(line)){ cur.body.push('[' + line.replace(/:\s*$/, '').trim() + ']'); continue; }
+    if (/^\s*[-*+]\s+/.test(line)) continue;              // bullet lists are not songs
+
+    cur.body.push(line);
+  }
+  return songs;
 }
 
 function buildImport(title, artist, raw){
@@ -1304,7 +1372,8 @@ async function saveVault(){
 $('imHelp').textContent =
   'Označ píseň na webu, zkopíruj (Ctrl+C) a vlož sem — akordy se převedou samy. ' +
   'Funguje i prostý text s akordy nad řádky nebo rovnou ChordPro se závorkami. ' +
-  'Prázdný řádek odděluje sloky; řádek „Refrén“ označí refrén.';
+  'Prázdný řádek odděluje sloky; řádek „Refrén“ označí refrén. ' +
+  'Můžeš vložit i celý zpěvník najednou — písně oddělené nadpisem „## Název“.';
 $('imBody').placeholder =
   'C                 G\n' +
   'první řádek textu písně\n' +
@@ -1354,9 +1423,34 @@ $('imSave').addEventListener('click', async () => {
   const title = $('imTitle').value.trim();
   const artist = $('imArtist').value.trim();
   const body = $('imBody').value;
-  if (!title){ $('imMsg').textContent = 'Doplň název písně.'; $('imTitle').focus(); return; }
   if (!body.trim()){ $('imMsg').textContent = 'Vlož text s akordy.'; $('imBody').focus(); return; }
 
+  // a whole songbook pasted at once: "## Title" per song
+  const many = splitMarkdown(body).filter(x => x.body.join('\n').trim());
+  if (many.length > 1){
+    let added = 0, skipped = 0;
+    for (const song of many){
+      const text = song.body.join('\n').trim();
+      const converted = looksLikeChordPro(text) ? text : plainToChordPro(text);
+      if (!/\[[^\]\n]+\]/.test(converted)){ skipped++; continue; }
+      const head = ['{title: ' + song.title.replace(/[{}]/g, '') + '}'];
+      if (song.meta.artist) head.push('{artist: ' + song.meta.artist.replace(/[{}]/g, '') + '}');
+      const key = song.meta.key && /^[A-H][b#]?m?$/.test(song.meta.key)
+        ? song.meta.key : keyFromChord((converted.match(/\[([^\]\n]+)\]/) || [, ''])[1]);
+      if (key) head.push('{key: ' + key + '}');
+      if (song.meta.tempo) head.push('{tempo: ' + song.meta.tempo + '}');
+      if (song.meta.capo) head.push('{capo: ' + song.meta.capo + '}');
+      head.push('{x_license: imported}', '{x_lang: user}');
+      if (addSong(head.join('\n') + '\n\n' + converted + '\n', true)) added++; else skipped++;
+    }
+    await saveVault();
+    $('imTitle').value = ''; $('imArtist').value = ''; $('imBody').value = '';
+    hideImport();
+    flash('Přidáno ' + added + (skipped ? ', přeskočeno ' + skipped : ''));
+    return;
+  }
+
+  if (!title){ $('imMsg').textContent = 'Doplň název písně.'; $('imTitle').focus(); return; }
   const rec = addSong(buildImport(title, artist, body), true);
   if (!rec){ $('imMsg').textContent = 'Píseň s tímto názvem už ve zpěvníku je.'; return; }
 
