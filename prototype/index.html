@@ -1067,9 +1067,111 @@ function plainToChordPro(text){
   return out.join('\n');
 }
 
+/* --- shape 3: HTML with inline chord spans -------------------------------
+   What the chord sites actually ship. A chord lives in its own element,
+   sitting immediately before the syllable it belongs to — which is exactly
+   ChordPro's [C] anchor, so no column guessing is needed. Matched by class
+   name rather than per-site selectors, so it works across sites.          */
+const CHORD_CLASS = /(^|[-_ ])(chord|akord)s?([-_ ]|$)/i;
+
+function classOf(el){
+  const c = el.className;
+  return typeof c === 'string' ? c : (el.getAttribute && el.getAttribute('class')) || '';
+}
+function sectionKind(el){
+  const s = ((el.getAttribute && el.getAttribute('data-type')) || '') + ' ' + classOf(el);
+  const t = s.toLowerCase();
+  if (/chorus|refr[ée]n/.test(t)) return 'chorus';
+  if (/verse|sloka/.test(t)) return 'verse';
+  if (/bridge/.test(t)) return 'bridge';
+  return null;
+}
+function nearestCommon(a, b){
+  const anc = []; for (let n = a; n; n = n.parentElement) anc.push(n);
+  for (let n = b; n; n = n.parentElement) if (anc.indexOf(n) >= 0) return n;
+  return null;
+}
+
+function htmlToChordPro(html){
+  let doc;
+  try { doc = new DOMParser().parseFromString(html, 'text/html'); } catch (e) { return null; }
+  if (!doc || !doc.body) return null;
+  doc.body.querySelectorAll(
+    'script,style,noscript,svg,iframe,button,select,textarea,form,nav,header,footer,aside'
+  ).forEach(e => e.remove());
+
+  const all = Array.prototype.slice.call(doc.body.querySelectorAll('*'));
+  let marks = all.filter(el => {
+    const t = (el.textContent || '').trim();
+    return CHORD_CLASS.test(classOf(el)) && t.length > 0 && t.length <= 10 && CHORD_RE.test(t);
+  });
+  // keep only the outermost element of each nested chord wrapper
+  marks = marks.filter(m => !marks.some(o => o !== m && o.contains(m)));
+  if (marks.length < 2) return null;
+
+  const set = new Set(marks);
+  const root = marks.reduce((a, m) => a ? nearestCommon(a, m) : m.parentElement, null) || doc.body;
+
+  const out = [];
+  let lastSec = null;
+  (function walk(n){
+    if (n.nodeType === 3){
+      const t = n.nodeValue.replace(/[\r\n\t]+/g, ' ');
+      if (t) out.push(t);
+      return;
+    }
+    if (n.nodeType !== 1) return;
+    if (set.has(n)){ out.push('[' + (n.textContent || '').trim() + ']'); return; }
+
+    const tag = n.tagName.toLowerCase();
+    if (tag === 'br'){ out.push('\n'); return; }
+
+    const kind = sectionKind(n);
+    if (kind && kind !== lastSec){ out.push('\n\u0001' + kind + '\u0001\n'); lastSec = kind; }
+
+    const block = /^(div|p|li|tr|section|article|h[1-6]|blockquote)$/.test(tag);
+    if (block) out.push('\n');
+    for (const c of n.childNodes) walk(c);
+    if (block) out.push('\n');
+  })(root);
+
+  let text = out.join('')
+    .split('\n').map(l => l.replace(/[ \t ]+/g, ' ').trim()).join('\n')
+    .replace(/\n{3,}/g, '\n\n').trim();
+  if (!/\[[^\]\n]+\]/.test(text)) return null;
+
+  // sentinel markers -> ChordPro section directives
+  const blocks = text.split(/\u0001/);
+  let body = '', open = null, v = 0;
+  const close = () => { if (open){ body += '{end_of_' + open + '}\n\n'; open = null; } };
+  for (let i = 0; i < blocks.length; i++){
+    const chunk = blocks[i];
+    if (i % 2 === 1){                      // a marker
+      close();
+      open = chunk;
+      body += open === 'verse' ? '{start_of_verse: ' + (++v) + '}\n' : '{start_of_' + open + '}\n';
+    } else {
+      const t = chunk.split('\n').filter(l => l.trim() !== '').join('\n');
+      if (t) body += t + '\n';
+    }
+  }
+  close();
+  return body.trim();
+}
+
 function buildImport(title, artist, raw){
   let body = raw.replace(/\r\n?/g, '\n').trim();
   if (!/\[[^\]\n]+\]/.test(body)) body = plainToChordPro(body);
+
+  // already sectioned (e.g. converted from a web page) — keep it as it is
+  if (/\{start_of_/.test(body)){
+    const probe0 = parseChordPro(body);
+    const head0 = ['{title: ' + title.replace(/[{}]/g, '') + '}'];
+    if (artist) head0.push('{artist: ' + artist.replace(/[{}]/g, '') + '}');
+    if (probe0.chords.length) head0.push('{key: ' + probe0.chords[0] + '}');
+    head0.push('{x_license: imported}', '{x_lang: user}');
+    return head0.join('\n') + '\n\n' + body + '\n';
+  }
 
   let v = 0;
   const secs = body.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean).map(b => {
@@ -1098,8 +1200,9 @@ async function saveVault(){
 }
 
 $('imHelp').textContent =
-  'Vlož akordy nad řádky textu (tak, jak je zkopíruješ z webu) nebo rovnou ChordPro ' +
-  'se závorkami. Prázdný řádek odděluje sloky; řádek „Refrén“ označí refrén.';
+  'Označ píseň na webu, zkopíruj (Ctrl+C) a vlož sem — akordy se převedou samy. ' +
+  'Funguje i prostý text s akordy nad řádky nebo rovnou ChordPro se závorkami. ' +
+  'Prázdný řádek odděluje sloky; řádek „Refrén“ označí refrén.';
 $('imBody').placeholder =
   'G                        D7\n' +
   'Holka modrooká, nesedávej u potoka\n' +
@@ -1124,6 +1227,22 @@ function hideImport(){
   window.scrollTo(0, 0);
   renderLibrary();
 }
+/* Pasting straight from a chord site: the clipboard carries text/html, so the
+   chord spans survive the copy. Convert them; otherwise let the plain-text
+   path handle it. */
+$('imBody').addEventListener('paste', e => {
+  const cb = e.clipboardData;
+  if (!cb) return;
+  const html = cb.getData('text/html');
+  if (!html) return;
+  const cho = htmlToChordPro(html);
+  if (!cho) return;
+  e.preventDefault();
+  $('imBody').value = cho;
+  const n = (cho.match(/\[[^\]\n]+\]/g) || []).length;
+  $('imMsg').textContent = 'Převedeno z webové stránky — ' + n + ' akordů.';
+});
+
 $('addBtn').addEventListener('click', showImport);
 $('impBack').addEventListener('click', hideImport);
 

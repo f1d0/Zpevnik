@@ -163,12 +163,28 @@ the spec reserves it for:
 | `x_capo_hint` | e.g. `capo 2, play G shapes` |
 | `x_difficulty` | `easy` / `medium` / `hard` — powers a beginner filter |
 
-**Importing from the wild.** Czech sites (pisnicky-akordy, velkyzpevnik,
-akordnik, brnkni, yousongs, spisnickou) all publish the same underlying
-shape: a line of chords sitting above a line of lyrics, in a `<pre>`.
-One importer converts that to inline ChordPro by column position — which
-covers effectively all of them. We write that importer once, it runs in the
-browser on pasted text, and the result is stored in Tier B.
+**Importing from the wild.** Checked against real pages rather than assumed.
+Three input shapes, all handled in the browser, all landing in Tier B:
+
+1. **HTML with inline chord elements.** What the live sites actually ship.
+   On `akordy.kytary.cz` a line looks like
+   `<div><span class="scs-chord">A</span>lyric…</div>` — the chord sits in
+   its own element immediately before its syllable, which *is* ChordPro's
+   `[A]` anchor. No column arithmetic, no ambiguity. We match on class names
+   containing `chord`/`akord` rather than per-site selectors, take the
+   outermost element of each nested chord wrapper, and read `data-type` /
+   class names for verse and chorus boundaries. One converter, many sites.
+2. **Plain text, chords on the line above the lyrics.** The older shape, and
+   what you get from a `<pre>` or a text file. Converted by column position.
+3. **ChordPro**, passed through.
+
+The delivery mechanism is the clipboard, not a fetcher: select the chord
+sheet on the page, copy, paste. The clipboard carries `text/html`, so the
+chord elements survive intact, and the app converts on paste. This sidesteps
+CORS entirely and works on any site — worth knowing, because two of the
+three sites tested refuse automated requests outright (HTTP 403), and their
+terms generally prohibit scraping. A person copying a page in their browser
+is not scraping.
 
 ---
 
