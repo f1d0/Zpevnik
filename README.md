@@ -1,0 +1,30 @@
+# Zpěvník
+
+A free, ad-free chord-and-lyrics player for guitar. Pick a song, prop up
+the tablet, play — the page scrolls itself at the pace you play at.
+
+No accounts. No ads. No tracking. Works offline.
+
+## Why
+
+Chords and lyrics are everywhere on the web, wrapped in advertising and
+paywalls. The *information* isn't the scarce part — a good, quiet player
+is. This is the player.
+
+## Status
+
+Design phase. See **[docs/DESIGN.md](docs/DESIGN.md)** for the full plan:
+screens, the auto-scroll mechanic, the song format, and the content model.
+
+## Songs
+
+Songs are plain-text [ChordPro](https://www.chordpro.org/) files.
+
+- `songs/public-domain/` — traditional and public-domain songs that ship
+  with the app and are published with it.
+- Everything else lives in the user's own browser, imported by them, and
+  is never uploaded or committed. See §3 of the design doc for why.
+
+## Licence
+
+App code: MIT. Song files under `songs/public-domain/` are public domain.
