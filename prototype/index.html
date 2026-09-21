@@ -288,11 +288,17 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
 .gate .wordmark{justify-content:center;font-size:28px;margin-bottom:10px}
 .gate p{color:var(--muted);font-size:13.5px;line-height:1.65;margin:0 0 26px}
 #pin{
-  width:100%;text-align:center;font-family:var(--mono);font-size:30px;font-weight:500;
-  letter-spacing:.42em;text-indent:.42em;
-  padding:16px 0;border-radius:12px;border:1px solid var(--line);
+  width:100%;text-align:center;font-family:var(--mono);font-size:17px;font-weight:500;
+  letter-spacing:.06em;padding:15px 14px;
+  border-radius:12px;border:1px solid var(--line);
   background:var(--surface);color:var(--ink);outline:none;
 }
+.remember{
+  display:flex;align-items:center;justify-content:center;gap:9px;
+  margin:15px 0 16px;font-size:13px;color:var(--muted);cursor:pointer;
+}
+.remember input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;flex:none}
+.gate-btn{width:100%}
 #pin:focus{border-color:var(--accent)}
 #pin:disabled{opacity:.6}
 .gate.bad #pin{border-color:#C6462F;animation:shake .38s}
@@ -345,10 +351,16 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
 <div class="gate" id="gate">
   <div class="gate-in">
     <div class="wordmark"><span class="dot"></span>Zpěvník</div>
-    <p>Soukromý zpěvník. Písně jsou v této stránce uložené<br>zašifrovaně — odemkni je PINem.</p>
-    <input id="pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4"
-           autocomplete="off" placeholder="····" aria-label="PIN" aria-describedby="gateMsg">
-    <div class="gate-msg" id="gateMsg">4 číslice</div>
+    <p>Soukromý zpěvník. Písně jsou v této stránce uložené<br>zašifrovaně — odemkni je heslem.</p>
+    <form id="gateForm">
+      <input id="pin" type="password" autocomplete="current-password"
+             placeholder="heslo" aria-label="Heslo" aria-describedby="gateMsg">
+      <label class="remember">
+        <input type="checkbox" id="remember" checked> zapamatovat na tomto zařízení
+      </label>
+      <button class="primary gate-btn" type="submit" id="unlockBtn">Odemknout</button>
+    </form>
+    <div class="gate-msg" id="gateMsg">&nbsp;</div>
   </div>
 </div>
 
@@ -388,7 +400,7 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
 </div>
 
 <!-- ============ LIBRARY ============ -->
-<main class="wrap" id="library">
+<main class="wrap" id="library" hidden>
   <div class="search">
     <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
     <input id="q" type="search" placeholder="Hledat píseň nebo interpreta…" autocomplete="off" aria-label="Hledat">
@@ -493,7 +505,7 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
 /* ---------- 1. the sealed songbook ----------
    Ciphertext only. AES-256-GCM, key from PBKDF2-HMAC-SHA256 over the PIN.
    Built by scripts/seal.js. No plaintext song lives in this file.        */
-const SEALED = {"v":1,"iter":310000,"salt":"XRlEoE/Th+kPMi0XkE4YOQ==","iv":"DfTsnXDNJ2ptChHS","ct":"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"};
+const SEALED = {"v":1,"iter":600000,"salt":"2tA25BjHfrXVJ5t8bgsg7A==","iv":"eG/7lcjE/T0YmVgy","ct":"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"};
 
 /* ---------- 1b. crypto ----------
    WebCrypto mirror of scripts/seal.js. A wrong PIN fails AES-GCM
@@ -1279,39 +1291,51 @@ async function unlock(pin){
 }
 
 const pinEl = $('pin');
-pinEl.addEventListener('input', async () => {
-  const v = pinEl.value.replace(/\D/g, '');
-  if (pinEl.value !== v) pinEl.value = v;
-  $('gate').classList.remove('bad');
-  if (v.length < 4){ $('gateMsg').textContent = '4 číslice'; return; }
+const PASSKEY = 'zpevnik:pass';
 
+/* session = this tab only; local = until she locks it. Her choice at the gate. */
+function rememberPass(v, durable){
+  try { sessionStorage.setItem(PASSKEY, v); } catch (e) {}
+  if (durable){ try { localStorage.setItem(PASSKEY, v); } catch (e) {} }
+}
+function forgetPass(){
+  try { sessionStorage.removeItem(PASSKEY); } catch (e) {}
+  try { localStorage.removeItem(PASSKEY); } catch (e) {}
+}
+function savedPass(){
+  try { return localStorage.getItem(PASSKEY) || sessionStorage.getItem(PASSKEY); }
+  catch (e) { return null; }
+}
+
+$('gateForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const v = pinEl.value;
+  if (!v){ pinEl.focus(); return; }
+
+  $('gate').classList.remove('bad');
   $('gateMsg').textContent = 'odemykám…';
-  pinEl.disabled = true;
+  pinEl.disabled = true; $('unlockBtn').disabled = true;
   try {
     await unlock(v);
-    try { sessionStorage.setItem('zpevnik:pin', v); } catch (e) {}
-  } catch (e) {
+    rememberPass(v, $('remember').checked);
+  } catch (err) {
     $('gate').classList.add('bad');
-    $('gateMsg').textContent = 'špatný PIN';
+    $('gateMsg').textContent = 'špatné heslo';
     pinEl.value = '';
   } finally {
-    pinEl.disabled = false;
+    pinEl.disabled = false; $('unlockBtn').disabled = false;
     if (!$('gate').hidden) pinEl.focus();
   }
 });
 
-$('lockBtn').addEventListener('click', () => {
-  try { sessionStorage.removeItem('zpevnik:pin'); } catch (e) {}
-  location.reload();
-});
+$('lockBtn').addEventListener('click', () => { forgetPass(); location.reload(); });
 
 /* ---------- go ---------- */
 (async function boot(){
-  let saved = null;
-  try { saved = sessionStorage.getItem('zpevnik:pin'); } catch (e) {}
+  const saved = savedPass();
   if (saved){
     try { await unlock(saved); return; }
-    catch (e) { try { sessionStorage.removeItem('zpevnik:pin'); } catch (_) {} }
+    catch (e) { forgetPass(); }
   }
   pinEl.focus();
 })();

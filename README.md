@@ -39,5 +39,6 @@ interaction, not the codebase.
 The songbook inside it is encrypted; rebuild the sealed payload with:
 
 ```sh
-node scripts/seal.js <pin> songs/public-domain
+node scripts/passphrase.js 6                    # suggest a passphrase
+node scripts/seal.js '<passphrase>' songs/public-domain
 ```

@@ -117,13 +117,43 @@ The prototype runs Tier B only: the whole songbook is sealed behind a PIN.
 - Songs added through the import screen are encrypted with the same key and
   written to `localStorage`. They never touch a server.
 
-**What this is worth, honestly.** A 4-digit PIN is 10 000 possibilities.
-At 310k iterations each guess costs real time, but someone who has the file
-and wants in can still exhaust the space in minutes. So the gate stops
-casual discovery by a person who gets the link; it is not protection against
-someone determined. Raising it to a word-plus-digits passphrase makes the
-same encryption genuinely strong, and costs one re-run of `seal.js` plus
-the `maxlength` on the PIN field.
+**Why a passphrase, not a PIN.** The page is fetchable by anyone who has the
+URL, so an attacker downloads the ciphertext once and then attacks it
+*offline*, at leisure, forever. There is no rate limit to hide behind — the
+only thing standing between them and the songs is the entropy of the
+passphrase. A 4-digit PIN is 10 000 possibilities: minutes. The generator in
+`scripts/passphrase.js` produces six words plus two digits from a 267-word
+list — 54.9 bits, which at an optimistic 10⁵ guesses/second against
+PBKDF2-SHA256 at 600 000 iterations is on the order of five thousand years.
+
+Rotate it any time:
+
+```sh
+node scripts/passphrase.js 6                       # suggest a new one
+node scripts/seal.js '<passphrase>' songs/public-domain > sealed.json
+```
+
+**Two layers, doing different jobs.** Encryption protects the *file*. It does
+not stop the file being served. Because these are independent failures, the
+deployment puts a real authenticator in front (see below) so an
+unauthenticated request never receives the bytes at all, and keeps the
+encryption underneath so that a leaked file is still useless.
+
+### Delivery
+
+- **GitHub Pages does not work for this.** On Free, Pro and Team, a Pages
+  site built from a private repository is still served publicly; private
+  Pages exist only on Enterprise Cloud. A private repo protects the source,
+  never the published site.
+- Giving a second person collaborator access to the repo gives them the
+  *files*, not the player — raw ChordPro in the GitHub UI is not a songbook.
+  The repo is storage; it is not the delivery mechanism.
+- **Cloudflare Pages + Cloudflare Access.** Access is free for up to 50
+  users. Deploy from the private repo, then put an Access policy in front
+  allowing exactly two email addresses. Unauthenticated requests are
+  rejected at the edge and never receive the HTML. Sign-in is a one-time
+  code by email, and the session length is configurable up to a month, so
+  in practice it is invisible.
 
 ---
 

@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const ITER = 310000, KEYLEN = 32, DIGEST = 'sha256';
+const ITER = 600000, KEYLEN = 32, DIGEST = 'sha256';
 
 const [, , pass, ...dirs] = process.argv;
 if (!pass) {
