@@ -279,6 +279,32 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
 }
 .speedflash.show{opacity:.94}
 
+/* ---------- inbox banner ---------- */
+.inbox{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  margin-bottom:18px;padding:14px 16px;border-radius:12px;
+  border:1px solid var(--accent);background:var(--accent-soft);
+}
+.inbox-text{flex:1;min-width:0;font-size:14px;line-height:1.35}
+.inbox-text strong{display:block;font-family:var(--cond);font-size:18px;font-weight:600}
+.inbox-text span{color:var(--muted);font-size:12.5px}
+.inbox-actions{display:flex;gap:8px;flex:none}
+.inbox-add{height:38px;padding:0 18px;font-size:13px}
+.inbox-skip{
+  height:38px;padding:0 14px;border-radius:10px;font-size:13px;
+  color:var(--muted);border:1px solid var(--line);background:var(--surface);
+}
+
+/* ---------- paste button ---------- */
+.pastebtn{
+  display:flex;align-items:center;justify-content:center;gap:8px;width:100%;
+  height:44px;margin-bottom:10px;border-radius:10px;
+  border:1px dashed var(--line);background:var(--surface);
+  color:var(--muted);font-size:14px;
+}
+.pastebtn:hover{border-color:var(--accent);color:var(--accent)}
+.pastebtn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+
 /* ---------- gate ---------- */
 .gate{
   position:fixed;inset:0;z-index:90;display:grid;place-items:center;
@@ -387,6 +413,9 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
         <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
       </button>
       <div class="player-title" id="pTitle">—<small id="pArtist"></small></div>
+      <button class="iconbtn" id="shareBtn" title="Poslat píseň" aria-label="Poslat píseň">
+        <svg viewBox="0 0 24 24"><path d="M12 16V4M12 4L8 8M12 4l4 4"/><path d="M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg>
+      </button>
       <div class="keytag" id="pKey">—</div>
     </div>
     <!-- importer header -->
@@ -401,6 +430,16 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
 
 <!-- ============ LIBRARY ============ -->
 <main class="wrap" id="library" hidden>
+  <div class="inbox" id="inbox" hidden>
+    <div class="inbox-text">
+      <strong id="inboxTitle">—</strong>
+      <span>někdo ti poslal píseň</span>
+    </div>
+    <div class="inbox-actions">
+      <button class="primary inbox-add" id="inboxAdd">Přidat</button>
+      <button class="inbox-skip" id="inboxSkip">Zahodit</button>
+    </div>
+  </div>
   <div class="search">
     <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
     <input id="q" type="search" placeholder="Hledat píseň nebo interpreta…" autocomplete="off" aria-label="Hledat">
@@ -450,6 +489,10 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
   </div>
   <div class="field">
     <label for="imBody">Akordy a text</label>
+    <button class="pastebtn" id="pasteBtn" type="button">
+      <svg viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/></svg>
+      Vložit ze schránky
+    </button>
     <textarea id="imBody" spellcheck="false"></textarea>
     <div class="help" id="imHelp"></div>
   </div>
@@ -526,6 +569,17 @@ async function deriveKey(pass, salt, iter){
 }
 async function aesDecrypt(key, ivB64, ctB64){
   return td.decode(await crypto.subtle.decrypt({name:'AES-GCM', iv:b64d(ivB64)}, key, b64d(ctB64)));
+}
+async function aesEncryptBytes(key, bytes){
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, bytes);
+  return {iv, ct: new Uint8Array(ct)};
+}
+const b64url = buf => b64e(buf).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+function unb64url(str){
+  let t = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (t.length % 4) t += '=';
+  return b64d(t);
 }
 async function aesEncrypt(key, text){
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -1276,6 +1330,130 @@ $('imSave').addEventListener('click', async () => {
   openSong(rec);
 });
 
+/* ---------- 11b. sending a song to the other phone ----------
+   The song is deflated, encrypted under the same passphrase-derived key, and
+   carried in the URL fragment — which browsers never send to a server. Both
+   devices seal against the same salt, so they derive an identical key and the
+   link opens on the other end with no account and nothing uploaded.        */
+async function deflate(str){
+  const bytes = te.encode(str);
+  if (typeof CompressionStream === 'undefined') return {z: '0', data: bytes};
+  const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+  return {z: '1', data: new Uint8Array(await new Response(stream).arrayBuffer())};
+}
+async function inflate(bytes, z){
+  if (z !== '1') return td.decode(bytes);
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return td.decode(await new Response(stream).arrayBuffer());
+}
+
+async function makeShareLink(song){
+  const {z, data} = await deflate(song.src);
+  const {iv, ct} = await aesEncryptBytes(state.key, data);
+  return location.origin + location.pathname + '#s=' + z + b64url(iv) + '.' + b64url(ct);
+}
+async function readShareLink(frag){
+  const z = frag[0];
+  const dot = frag.indexOf('.');
+  if (dot < 0) throw new Error('bad link');
+  const iv = unb64url(frag.slice(1, dot));
+  const ct = unb64url(frag.slice(dot + 1));
+  const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv}, state.key, ct);
+  return inflate(new Uint8Array(pt), z);
+}
+
+$('shareBtn').addEventListener('click', async () => {
+  if (!state.song) return;
+  try {
+    const url = await makeShareLink(state.song);
+    const title = state.song.meta.title;
+    if (navigator.share){
+      try { await navigator.share({title, text: title, url}); return; }
+      catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    await navigator.clipboard.writeText(url);
+    flash('Odkaz zkopírován');
+  } catch (e) {
+    flash('Nepodařilo se vytvořit odkaz');
+  }
+});
+
+/* a link opened on the other device */
+let pendingShare = null, incoming = null;
+(function grabFragment(){
+  const m = (location.hash || '').match(/^#s=(.+)$/);
+  if (!m) return;
+  pendingShare = m[1];
+  try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+})();
+
+async function offerIncoming(){
+  if (!pendingShare) return;
+  const frag = pendingShare; pendingShare = null;
+  try {
+    const src = await readShareLink(frag);
+    const parsed = parseChordPro(src);
+    incoming = src;
+    $('inboxTitle').textContent = parsed.meta.title || 'Píseň';
+    $('inbox').hidden = false;
+  } catch (e) {
+    flash('Odkaz se nepodařilo otevřít');
+  }
+}
+
+$('inboxAdd').addEventListener('click', async () => {
+  if (!incoming) return;
+  const rec = addSong(incoming, true);
+  incoming = null;
+  $('inbox').hidden = true;
+  if (!rec){ flash('Tuhle píseň už máš'); renderLibrary(); return; }
+  await saveVault();
+  renderLibrary();
+  openSong(rec);
+});
+$('inboxSkip').addEventListener('click', () => {
+  incoming = null;
+  $('inbox').hidden = true;
+});
+
+/* iOS: long-press paste into a textarea is fiddly, so offer an explicit one */
+$('pasteBtn').addEventListener('click', async () => {
+  try {
+    let html = '', text = '';
+    if (navigator.clipboard && navigator.clipboard.read){
+      const items = await navigator.clipboard.read();
+      for (const it of items){
+        if (it.types.includes('text/html')) html = await (await it.getType('text/html')).text();
+        if (it.types.includes('text/plain')) text = await (await it.getType('text/plain')).text();
+      }
+    }
+    if (!html && !text && navigator.clipboard && navigator.clipboard.readText)
+      text = await navigator.clipboard.readText();
+
+    const cho = html ? htmlToChordPro(html) : null;
+    if (cho){
+      $('imBody').value = cho;
+      $('imMsg').textContent = 'Převedeno ze stránky — ' + (cho.match(/\[[^\]\n]+\]/g) || []).length + ' akordů.';
+    } else if (text){
+      $('imBody').value = text;
+      $('imMsg').textContent = 'Vloženo.';
+    } else {
+      $('imMsg').textContent = 'Schránka je prázdná.';
+    }
+  } catch (e) {
+    $('imMsg').textContent = 'Vlož text dlouhým stiskem do pole níže.';
+  }
+});
+
+/* iOS: make "Přidat na plochu" open fullscreen, without Safari chrome */
+[['apple-mobile-web-app-capable', 'yes'],
+ ['apple-mobile-web-app-status-bar-style', 'black-translucent'],
+ ['apple-mobile-web-app-title', 'Zpěvník']].forEach(([name, content]) => {
+  const m = document.createElement('meta');
+  m.name = name; m.content = content;
+  document.head.appendChild(m);
+});
+
 /* ---------- 12. unlock ---------- */
 async function unlock(pin){
   const key = await deriveKey(pin, b64d(SEALED.salt), SEALED.iter);
@@ -1290,6 +1468,7 @@ async function unlock(pin){
   $('topbar').hidden = false;
   $('library').hidden = false;
   renderLibrary();
+  offerIncoming();
 }
 
 const pinEl = $('pin');

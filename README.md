@@ -25,6 +25,11 @@ Songs are plain-text [ChordPro](https://www.chordpro.org/) files.
 - Everything else lives in the user's own browser, imported by them, and
   is never uploaded or committed. See §3 of the design doc for why.
 
+## On mobile
+
+See **[docs/MOBILE.md](docs/MOBILE.md)** — adding songs on iOS, and sending
+a song from one phone to the other as an encrypted link. No computer needed.
+
 ## Deploying
 
 See **[docs/DEPLOY.md](docs/DEPLOY.md)**. In short:
