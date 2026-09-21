@@ -36,9 +36,22 @@ parser, transpose, Czech/English chord notation, the hands-free scroll,
 paste-in import, and the PIN gate. It is a sketch to feel the
 interaction, not the codebase.
 
+### Adding songs in bulk
+
+`scripts/import.js` converts whatever you already have into ChordPro. It
+reads three shapes — ChordPro files, plain text with chords on the line
+above the lyrics, and saved web pages where each chord sits in its own
+inline element — and writes them to `songs/private/`, which is gitignored.
+It does no networking; you supply the files.
+
+```sh
+node scripts/import.js ~/Downloads/songs --dry   # see what it would do
+node scripts/import.js ~/Downloads/songs         # -> songs/private/
+```
+
 The songbook inside it is encrypted; rebuild the sealed payload with:
 
 ```sh
 node scripts/passphrase.js 6                    # suggest a passphrase
-node scripts/seal.js '<passphrase>' songs/public-domain
+node scripts/seal.js '<passphrase>' songs/public-domain songs/private
 ```
