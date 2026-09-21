@@ -196,6 +196,16 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(-
 }
 .lx{display:block;white-space:pre-wrap}
 
+.line.nochord{margin-bottom:2px}
+.section.tabs{
+  background:var(--tint);border-radius:8px;
+  padding:12px 14px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+}
+.tabline{
+  font-family:var(--mono);font-size:calc(var(--lyric) * .58);
+  line-height:1.45;white-space:pre;color:var(--muted);
+}
+
 /* ---------- dock ---------- */
 .dock{
   position:fixed;left:0;right:0;bottom:0;z-index:50;
@@ -605,7 +615,8 @@ function parseChordPro(src){
       const val = (dir[2] || '').trim();
       if (name.startsWith('start_of_')){
         const kind = name.slice(9);
-        open(kind).label = val ? `${kindLabel(kind)} ${val}` : kindLabel(kind);
+        open(kind).label = !val ? kindLabel(kind)
+          : /^\d+$/.test(val) ? `${kindLabel(kind)} ${val}` : val;
       } else if (name.startsWith('end_of_')){
         cur = null;
       } else if (name === 'comment' || name === 'comment_italic' || name === 'comment_box'){
@@ -618,6 +629,7 @@ function parseChordPro(src){
 
     if (line.trim() === ''){ if (cur) cur.lines.push({blank:true}); continue; }
     if (!cur) open('verse');
+    if (cur.kind === 'tab'){ cur.lines.push({raw: line}); song.lineCount++; continue; }
     const segs = splitLine(line);
     for (const s of segs) if (s.chord && !song.chords.includes(s.chord)) song.chords.push(s.chord);
     cur.lines.push({segs});
@@ -627,7 +639,7 @@ function parseChordPro(src){
 }
 
 function kindLabel(k){
-  return {verse:'Sloka', chorus:'Refrén', bridge:'Bridge', tab:'Tab'}[k] || k;
+  return {verse:'Sloka', chorus:'Refrén', bridge:'Bridge', tab:'Tabulatura'}[k] || k;
 }
 
 /* "[G]Holka [D7]modrooká" -> [{chord:'G',text:'Holka '},{chord:'D7',text:'modrooká'}] */
@@ -887,7 +899,8 @@ function drawSheet(){
   for (const sec of s.sections){
     if (!sec.lines.length) continue;
     const el = document.createElement('section');
-    el.className = 'section' + (sec.kind === 'chorus' ? ' chorus' : '');
+    el.className = 'section' + (sec.kind === 'chorus' ? ' chorus' : '') +
+                                (sec.kind === 'tab' ? ' tabs' : '');
     if (sec.label){
       const l = document.createElement('div');
       l.className = 'section-label';
@@ -901,17 +914,24 @@ function drawSheet(){
       }
       const d = document.createElement('div');
       if (ln.blank){ d.className = 'line blank'; el.appendChild(d); continue; }
-      d.className = 'line';
-      for (const t of tokenize(ln.segs)){
+      if (ln.raw !== undefined){
+        d.className = 'tabline'; d.textContent = ln.raw; el.appendChild(d); continue;
+      }
+      const toks = tokenize(ln.segs);
+      d.className = 'line' + (toks.some(t => t.chord) ? '' : ' nochord');
+      for (const t of toks){
         const sp = document.createElement('span');
         sp.className = 'seg' + (t.sp ? ' sp' : '');
-        const c = document.createElement('span');
-        c.className = 'ch';
-        c.textContent = t.chord ? renderChord(t.chord, n, cz) : '';
+        if (!d.classList.contains('nochord')){
+          const c = document.createElement('span');
+          c.className = 'ch';
+          c.textContent = t.chord ? renderChord(t.chord, n, cz) : '';
+          sp.appendChild(c);
+        }
         const x = document.createElement('span');
         x.className = 'lx';
         x.textContent = t.text;
-        sp.appendChild(c); sp.appendChild(x);
+        sp.appendChild(x);
         d.appendChild(sp);
       }
       el.appendChild(d);
@@ -1097,14 +1117,37 @@ if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
 /* ---------- 11. importing your own songs ----------
    Accepts ChordPro, or the chords-over-lyrics block that every chord
    site on the web publishes — converted by column position.          */
-const CHORD_RE = /^[A-H](#|b)?(mi|min|maj|m|M|dim|aug|sus|add)?\d*(sus\d*|add\d*|maj\d*|dim|aug|\+)*(\/[A-H](#|b)?)?$/;
+const QUAL = "(?:maj|maj7|maj9|min|mi|m|M|dim|aug|sus|add|alt|no|°|ø|Δ|\\+|-|\\d+|#\\d*|b\\d+|\\(|\\)|,)";
+const CHORD_RE = new RegExp("^[A-H][b#]?" + QUAL + "*(?:/[A-H][b#]?)?$");
 
+const SECTION_WORDS = /^(intro|verse|chorus|refr[eé]n|sloka|bridge|solo|outro|ending|pre-?chorus|interlude|instrumental|riff|coda|hook|breakdown|tag|vamp)\b/i;
+
+const isStringLabel = l => /^[eEABDGabdg]b?\|?$/.test(l.trim());
+
+
+function sectionHeader(line){
+  const m = line.trim().match(/^\[([^\]]{1,40})\]$/);
+  if (!m) return null;
+  const inner = m[1].trim();
+  if (SECTION_WORDS.test(inner)) return inner;
+  if (!CHORD_RE.test(inner)) return inner;   // not a chord -> a label
+  return null;                                // [Am] alone really is a chord
+}
+function isTabLine(l){
+  const s = l.trim();
+  if (!s) return false;
+  if (!/-{3,}/.test(s)) return false;
+  const striking = (s.match(/[-|0-9]/g) || []).length;
+  return striking / s.length > 0.5;
+}
 function isChordLine(line){
   const toks = line.trim().split(/\s+/).filter(Boolean);
-  return toks.length > 0 && toks.every(t => CHORD_RE.test(t));
+  if (!toks.length) return false;
+  if (!toks.every(t => CHORD_RE.test(t))) return false;
+  // a lone bare letter is far more likely a tab label or a lyric than a chord
+  if (toks.length === 1 && toks[0].length === 1) return false;
+  return true;
 }
-
-/* put [chords] into the lyric line at the column they sat above */
 function mergeChordLine(chordLine, lyricLine){
   const marks = [], re = /\S+/g;
   let m; while ((m = re.exec(chordLine)) !== null) marks.push({col: m.index, chord: m[0]});
@@ -1116,125 +1159,118 @@ function mergeChordLine(chordLine, lyricLine){
   for (const o of over) out += '[' + o.chord + ']';
   return out;
 }
-
+function kindOf(label){
+  const l = label.toLowerCase();
+  if (/^(chorus|refr|hook)/.test(l)) return 'chorus';
+  if (/^(bridge)/.test(l)) return 'bridge';
+  if (/^(verse|sloka)/.test(l)) return 'verse';
+  return 'other';
+}
 function plainToChordPro(text){
-  const L = text.split('\n').map(l => l.replace(/\t/g, '    ').replace(/\s+$/, ''));
+  const L = text.replace(/\r\n?/g, '\n').split('\n').map(l => l.replace(/\t/g, '    ').replace(/\s+$/, ''));
   const out = [];
+  let open = null, openIdx = -1, contentSinceOpen = false, verses = 0, sawChord = false;
+
+  const close = () => {
+    if (!open) return;
+    if (!contentSinceOpen) out.splice(openIdx, out.length - openIdx);  // drop empty section
+    else out.push('{end_of_' + open + '}');
+    open = null; openIdx = -1;
+  };
+  const openSec = (kind, label) => {
+    close();
+    open = kind === 'other' ? 'verse' : kind;
+    openIdx = out.length;
+    contentSinceOpen = false;
+    if (open === 'verse' && !label) label = String(++verses);
+    out.push('{start_of_' + open + (label ? ': ' + label : '') + '}');
+  };
+  const emit = l => { out.push(l); if (l.trim() !== '') contentSinceOpen = true; };
+
   for (let i = 0; i < L.length; i++){
-    if (!isChordLine(L[i])){ out.push(L[i]); continue; }
-    const next = L[i + 1];
-    if (next !== undefined && next.trim() !== '' && !isChordLine(next)){
-      out.push(mergeChordLine(L[i], next));
-      i++;
-    } else {
-      out.push(L[i].trim().split(/\s+/).map(c => '[' + c + ']').join(' '));
+    const line = L[i];
+
+    const header = sectionHeader(line);
+    if (header){ openSec(kindOf(header), header); continue; }
+
+    if (isTabLine(line) || (isStringLabel(line) && isTabLine(L[i + 1] || ''))){
+      // a tab right after a bare section header belongs to it — keep the label
+      let label = '';
+      if (open && !contentSinceOpen){
+        const m = out[openIdx].match(/^\{start_of_\w+(?::\s*(.*))?\}$/);
+        label = (m && m[1]) ? m[1] : '';
+        out.splice(openIdx, out.length - openIdx);
+        open = null; openIdx = -1;
+      } else close();
+
+      out.push('{start_of_tab' + (label ? ': ' + label : '') + '}');
+      while (i < L.length){
+        const cur = L[i];
+        const isTab = isTabLine(cur) || (isStringLabel(cur) && isTabLine(L[i + 1] || ''));
+        if (isTab){ out.push(cur); i++; continue; }
+        if (cur.trim() === '' &&
+            (isTabLine(L[i + 1] || '') || (isStringLabel(L[i + 1] || '') && isTabLine(L[i + 2] || '')))){
+          i++; continue;
+        }
+        break;
+      }
+      i--;
+      out.push('{end_of_tab}');
+      continue;
     }
-  }
-  return out.join('\n');
-}
 
-/* --- shape 3: HTML with inline chord spans -------------------------------
-   What the chord sites actually ship. A chord lives in its own element,
-   sitting immediately before the syllable it belongs to — which is exactly
-   ChordPro's [C] anchor, so no column guessing is needed. Matched by class
-   name rather than per-site selectors, so it works across sites.          */
-const CHORD_CLASS = /(^|[-_ ])(chord|akord)s?([-_ ]|$)/i;
+    if (line.trim() === ''){ if (open) out.push(''); continue; }
 
-function classOf(el){
-  const c = el.className;
-  return typeof c === 'string' ? c : (el.getAttribute && el.getAttribute('class')) || '';
-}
-function sectionKind(el){
-  const s = ((el.getAttribute && el.getAttribute('data-type')) || '') + ' ' + classOf(el);
-  const t = s.toLowerCase();
-  if (/chorus|refr[ée]n/.test(t)) return 'chorus';
-  if (/verse|sloka/.test(t)) return 'verse';
-  if (/bridge/.test(t)) return 'bridge';
-  return null;
-}
-function nearestCommon(a, b){
-  const anc = []; for (let n = a; n; n = n.parentElement) anc.push(n);
-  for (let n = b; n; n = n.parentElement) if (anc.indexOf(n) >= 0) return n;
-  return null;
-}
-
-function htmlToChordPro(html){
-  let doc;
-  try { doc = new DOMParser().parseFromString(html, 'text/html'); } catch (e) { return null; }
-  if (!doc || !doc.body) return null;
-  doc.body.querySelectorAll(
-    'script,style,noscript,svg,iframe,button,select,textarea,form,nav,header,footer,aside'
-  ).forEach(e => e.remove());
-
-  const all = Array.prototype.slice.call(doc.body.querySelectorAll('*'));
-  let marks = all.filter(el => {
-    const t = (el.textContent || '').trim();
-    return CHORD_CLASS.test(classOf(el)) && t.length > 0 && t.length <= 10 && CHORD_RE.test(t);
-  });
-  // keep only the outermost element of each nested chord wrapper
-  marks = marks.filter(m => !marks.some(o => o !== m && o.contains(m)));
-  if (marks.length < 2) return null;
-
-  const set = new Set(marks);
-  const root = marks.reduce((a, m) => a ? nearestCommon(a, m) : m.parentElement, null) || doc.body;
-
-  const out = [];
-  let lastSec = null;
-  (function walk(n){
-    if (n.nodeType === 3){
-      const t = n.nodeValue.replace(/[\r\n\t]+/g, ' ');
-      if (t) out.push(t);
-      return;
+    if (isChordLine(line)){
+      sawChord = true;
+      if (!open) openSec('verse');
+      const next = L[i + 1];
+      if (next !== undefined && next.trim() !== '' && !isChordLine(next) &&
+          !isTabLine(next) && !sectionHeader(next)){
+        emit(mergeChordLine(line, next)); i++;
+      } else {
+        emit(line.trim().split(/\s+/).map(c => '[' + c + ']').join(' '));
+      }
+      continue;
     }
-    if (n.nodeType !== 1) return;
-    if (set.has(n)){ out.push('[' + (n.textContent || '').trim() + ']'); return; }
 
-    const tag = n.tagName.toLowerCase();
-    if (tag === 'br'){ out.push('\n'); return; }
-
-    const kind = sectionKind(n);
-    if (kind && kind !== lastSec){ out.push('\n\u0001' + kind + '\u0001\n'); lastSec = kind; }
-
-    const block = /^(div|p|li|tr|section|article|h[1-6]|blockquote)$/.test(tag);
-    if (block) out.push('\n');
-    for (const c of n.childNodes) walk(c);
-    if (block) out.push('\n');
-  })(root);
-
-  let text = out.join('')
-    .split('\n').map(l => l.replace(/[ \t ]+/g, ' ').trim()).join('\n')
-    .replace(/\n{3,}/g, '\n\n').trim();
-  if (!/\[[^\]\n]+\]/.test(text)) return null;
-
-  // sentinel markers -> ChordPro section directives
-  const blocks = text.split(/\u0001/);
-  let body = '', open = null, v = 0;
-  const close = () => { if (open){ body += '{end_of_' + open + '}\n\n'; open = null; } };
-  for (let i = 0; i < blocks.length; i++){
-    const chunk = blocks[i];
-    if (i % 2 === 1){                      // a marker
-      close();
-      open = chunk;
-      body += open === 'verse' ? '{start_of_verse: ' + (++v) + '}\n' : '{start_of_' + open + '}\n';
-    } else {
-      const t = chunk.split('\n').filter(l => l.trim() !== '').join('\n');
-      if (t) body += t + '\n';
-    }
+    // credits and tuning notes ahead of any chord are not a verse
+    if (!sawChord && !open){ out.push('{comment: ' + line.trim() + '}'); continue; }
+    if (!open) openSec('verse');
+    emit(line);
   }
   close();
-  return body.trim();
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+/* Square brackets alone cannot tell ChordPro from an Ultimate Guitar page:
+   ChordPro puts chords in them, UG puts section headers in them. Decide on
+   what is actually inside. */
+/* A key is a root, not a voicing: Fsus2 -> F, Dm7sus4 -> Dm, Am7 -> Am. */
+function keyFromChord(sym){
+  const c = parseChord(sym);
+  if (!c) return sym;
+  return c.root + (/^(m|mi|min)(?!aj)/.test(c.suffix) ? 'm' : '');
+}
+
+function looksLikeChordPro(text){
+  if (/^[ \t]*\{[ \t]*[a-z_]+[ \t]*[:}]/im.test(text)) return true;   // directives
+  const inner = (text.match(/\[([^\]\n]{1,30})\]/g) || []).map(b => b.slice(1, -1).trim());
+  if (!inner.length) return false;
+  const chords = inner.filter(t => CHORD_RE.test(t)).length;
+  return chords >= Math.max(2, inner.length * 0.6);
 }
 
 function buildImport(title, artist, raw){
   let body = raw.replace(/\r\n?/g, '\n').trim();
-  if (!/\[[^\]\n]+\]/.test(body)) body = plainToChordPro(body);
+  if (!looksLikeChordPro(body)) body = plainToChordPro(body);
 
   // already sectioned (e.g. converted from a web page) — keep it as it is
   if (/\{start_of_/.test(body)){
     const probe0 = parseChordPro(body);
     const head0 = ['{title: ' + title.replace(/[{}]/g, '') + '}'];
     if (artist) head0.push('{artist: ' + artist.replace(/[{}]/g, '') + '}');
-    if (probe0.chords.length) head0.push('{key: ' + probe0.chords[0] + '}');
+    if (probe0.chords.length) head0.push('{key: ' + keyFromChord(probe0.chords[0]) + '}');
     head0.push('{x_license: imported}', '{x_lang: user}');
     return head0.join('\n') + '\n\n' + body + '\n';
   }
@@ -1251,7 +1287,7 @@ function buildImport(title, artist, raw){
   const probe = parseChordPro(body);
   const head = ['{title: ' + title.replace(/[{}]/g, '') + '}'];
   if (artist) head.push('{artist: ' + artist.replace(/[{}]/g, '') + '}');
-  if (probe.chords.length) head.push('{key: ' + probe.chords[0] + '}');
+  if (probe.chords.length) head.push('{key: ' + keyFromChord(probe.chords[0]) + '}');
   head.push('{x_license: imported}', '{x_lang: user}');
   return head.join('\n') + '\n\n' + secs.join('\n\n') + '\n';
 }

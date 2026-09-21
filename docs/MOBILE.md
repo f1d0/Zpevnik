@@ -72,6 +72,19 @@ npm run deploy
 Now any device that unlocks gets them from the start. Worth doing before a
 trip, or whenever you set up a new phone.
 
+## Ultimate Guitar and similar pages
+
+These are handled directly. Their text format uses `[Intro]`, `[Verse 1]`,
+`[Chorus]` as section headers, chords on the line above the lyrics, and tab
+staves — all of which the importer now reads:
+
+- section headers become real sections, and the chorus gets highlighted
+- tab staves are kept in monospace so the fret numbers stay lined up
+- the credits block at the top becomes a note, not a verse
+- awkward chords (`Fsus2`, `Dm7sus4`, `Bb#11`, `F#m7b5`) parse and transpose
+
+Select the sheet on the page, copy, paste. Nothing else to do.
+
 ## If a paste doesn't convert
 
 Some sites lay chords out as plain text columns rather than marked-up

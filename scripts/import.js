@@ -18,14 +18,37 @@ const fs = require('fs');
 const path = require('path');
 
 /* ---------- shared with the in-app importer ---------- */
-const CHORD_RE = /^[A-H](#|b)?(mi|min|maj|m|M|dim|aug|sus|add)?\d*(sus\d*|add\d*|maj\d*|dim|aug|\+)*(\/[A-H](#|b)?)?$/;
-const CHORD_CLASS = /(^|[-_ \s"'])(chord|akord)s?([-_ \s"']|$)/i;
+const QUAL = "(?:maj|maj7|maj9|min|mi|m|M|dim|aug|sus|add|alt|no|°|ø|Δ|\\+|-|\\d+|#\\d*|b\\d+|\\(|\\)|,)";
+const CHORD_RE = new RegExp("^[A-H][b#]?" + QUAL + "*(?:/[A-H][b#]?)?$");
 
+const CHORD_CLASS = /(^|[-_ \s"'])(chord|akord)s?([-_ \s"']|$)/i;
+const SECTION_WORDS = /^(intro|verse|chorus|refr[eé]n|sloka|bridge|solo|outro|ending|pre-?chorus|interlude|instrumental|riff|coda|hook|breakdown|tag|vamp)\b/i;
+
+const isStringLabel = l => /^[eEABDGabdg]b?\|?$/.test(l.trim());
+
+function sectionHeader(line){
+  const m = line.trim().match(/^\[([^\]]{1,40})\]$/);
+  if (!m) return null;
+  const inner = m[1].trim();
+  if (SECTION_WORDS.test(inner)) return inner;
+  if (!CHORD_RE.test(inner)) return inner;   // not a chord -> a label
+  return null;                                // [Am] alone really is a chord
+}
+function isTabLine(l){
+  const s = l.trim();
+  if (!s) return false;
+  if (!/-{3,}/.test(s)) return false;
+  const striking = (s.match(/[-|0-9]/g) || []).length;
+  return striking / s.length > 0.5;
+}
 function isChordLine(line){
   const toks = line.trim().split(/\s+/).filter(Boolean);
-  return toks.length > 0 && toks.every(t => CHORD_RE.test(t));
+  if (!toks.length) return false;
+  if (!toks.every(t => CHORD_RE.test(t))) return false;
+  // a lone bare letter is far more likely a tab label or a lyric than a chord
+  if (toks.length === 1 && toks[0].length === 1) return false;
+  return true;
 }
-
 function mergeChordLine(chordLine, lyricLine){
   const marks = [], re = /\S+/g;
   let m; while ((m = re.exec(chordLine)) !== null) marks.push({col: m.index, chord: m[0]});
@@ -37,20 +60,88 @@ function mergeChordLine(chordLine, lyricLine){
   for (const o of over) out += '[' + o.chord + ']';
   return out;
 }
-
+function kindOf(label){
+  const l = label.toLowerCase();
+  if (/^(chorus|refr|hook)/.test(l)) return 'chorus';
+  if (/^(bridge)/.test(l)) return 'bridge';
+  if (/^(verse|sloka)/.test(l)) return 'verse';
+  return 'other';
+}
 function plainToChordPro(text){
-  const L = text.split('\n').map(l => l.replace(/\t/g, '    ').replace(/\s+$/, ''));
+  const L = text.replace(/\r\n?/g, '\n').split('\n').map(l => l.replace(/\t/g, '    ').replace(/\s+$/, ''));
   const out = [];
+  let open = null, openIdx = -1, contentSinceOpen = false, verses = 0, sawChord = false;
+
+  const close = () => {
+    if (!open) return;
+    if (!contentSinceOpen) out.splice(openIdx, out.length - openIdx);  // drop empty section
+    else out.push('{end_of_' + open + '}');
+    open = null; openIdx = -1;
+  };
+  const openSec = (kind, label) => {
+    close();
+    open = kind === 'other' ? 'verse' : kind;
+    openIdx = out.length;
+    contentSinceOpen = false;
+    if (open === 'verse' && !label) label = String(++verses);
+    out.push('{start_of_' + open + (label ? ': ' + label : '') + '}');
+  };
+  const emit = l => { out.push(l); if (l.trim() !== '') contentSinceOpen = true; };
+
   for (let i = 0; i < L.length; i++){
-    if (!isChordLine(L[i])){ out.push(L[i]); continue; }
-    const next = L[i + 1];
-    if (next !== undefined && next.trim() !== '' && !isChordLine(next)){
-      out.push(mergeChordLine(L[i], next)); i++;
-    } else {
-      out.push(L[i].trim().split(/\s+/).map(c => '[' + c + ']').join(' '));
+    const line = L[i];
+
+    const header = sectionHeader(line);
+    if (header){ openSec(kindOf(header), header); continue; }
+
+    if (isTabLine(line) || (isStringLabel(line) && isTabLine(L[i + 1] || ''))){
+      // a tab right after a bare section header belongs to it — keep the label
+      let label = '';
+      if (open && !contentSinceOpen){
+        const m = out[openIdx].match(/^\{start_of_\w+(?::\s*(.*))?\}$/);
+        label = (m && m[1]) ? m[1] : '';
+        out.splice(openIdx, out.length - openIdx);
+        open = null; openIdx = -1;
+      } else close();
+
+      out.push('{start_of_tab' + (label ? ': ' + label : '') + '}');
+      while (i < L.length){
+        const cur = L[i];
+        const isTab = isTabLine(cur) || (isStringLabel(cur) && isTabLine(L[i + 1] || ''));
+        if (isTab){ out.push(cur); i++; continue; }
+        if (cur.trim() === '' &&
+            (isTabLine(L[i + 1] || '') || (isStringLabel(L[i + 1] || '') && isTabLine(L[i + 2] || '')))){
+          i++; continue;
+        }
+        break;
+      }
+      i--;
+      out.push('{end_of_tab}');
+      continue;
     }
+
+    if (line.trim() === ''){ if (open) out.push(''); continue; }
+
+    if (isChordLine(line)){
+      sawChord = true;
+      if (!open) openSec('verse');
+      const next = L[i + 1];
+      if (next !== undefined && next.trim() !== '' && !isChordLine(next) &&
+          !isTabLine(next) && !sectionHeader(next)){
+        emit(mergeChordLine(line, next)); i++;
+      } else {
+        emit(line.trim().split(/\s+/).map(c => '[' + c + ']').join(' '));
+      }
+      continue;
+    }
+
+    // credits and tuning notes ahead of any chord are not a verse
+    if (!sawChord && !open){ out.push('{comment: ' + line.trim() + '}'); continue; }
+    if (!open) openSec('verse');
+    emit(line);
   }
-  return out.join('\n');
+  close();
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 /* ---------- HTML: chords sit in their own inline elements ---------- */
@@ -170,6 +261,16 @@ function firstChord(body){
   return m ? m[1] : '';
 }
 
+/* Square brackets alone cannot tell ChordPro from an Ultimate Guitar page:
+   ChordPro puts chords in them, UG puts section headers in them. */
+function looksLikeChordPro(text){
+  if (/^[ \t]*\{[ \t]*[a-z_]+[ \t]*[:}]/im.test(text)) return true;
+  const inner = (text.match(/\[([^\]\n]{1,30})\]/g) || []).map(b => b.slice(1, -1).trim());
+  if (!inner.length) return false;
+  const chords = inner.filter(t => CHORD_RE.test(t)).length;
+  return chords >= Math.max(2, inner.length * 0.6);
+}
+
 function wrapSections(body){
   if (/\{start_of_/.test(body)) return body;
   let v = 0;
@@ -200,7 +301,7 @@ function convert(file){
     title = titleFromHtml(raw);
   } else {
     shape = 'text';
-    body = /\[[^\]\n]+\]/.test(raw) ? raw.trim() : plainToChordPro(raw.trim());
+    body = looksLikeChordPro(raw) ? raw.trim() : plainToChordPro(raw.trim());
     const first = raw.split('\n').find(l => l.trim());
     if (first && !isChordLine(first) && !/\[/.test(first)) title = first.trim();
   }
